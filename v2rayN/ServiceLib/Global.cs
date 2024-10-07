@@ -15,7 +15,7 @@
         public const string NaiveproxyCoreUrl = "https://github.com/klzgrad/naiveproxy/releases";
         public const string TuicCoreUrl = "https://github.com/EAimTY/tuic/releases";
         public const string SingboxCoreUrl = "https://github.com/SagerNet/sing-box/releases";
-        public const string GeoUrl = "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/{0}.dat";
+        public const string GeoUrl = "https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/{0}.dat";
         public const string SpeedPingTestUrl = @"https://www.google.com/generate_204";
         public const string JuicityCoreUrl = "https://github.com/juicity/juicity/releases";
         public const string CustomRoutingListUrl = @"https://raw.githubusercontent.com/2dust/v2rayCustomRoutingList/master/";
