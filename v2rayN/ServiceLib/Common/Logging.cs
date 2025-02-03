@@ -1,4 +1,4 @@
-﻿using NLog;
+using NLog;
 using NLog.Config;
 using NLog.Targets;
 
@@ -25,52 +25,25 @@ namespace ServiceLib.Common
             }
         }
 
-        public static void ClearLogs()
-        {
-            Task.Run(() =>
-            {
-                try
-                {
-                    var now = DateTime.Now.AddMonths(-1);
-                    var dir = Utils.GetLogPath();
-                    var files = Directory.GetFiles(dir, "*.txt");
-                    foreach (var filePath in files)
-                    {
-                        var file = new FileInfo(filePath);
-                        if (file.CreationTime < now)
-                        {
-                            try
-                            {
-                                file.Delete();
-                            }
-                            catch { }
-                        }
-                    }
-                }
-                catch { }
-            });
-        }
-
         public static void SaveLog(string strContent)
         {
-            if (LogManager.IsLoggingEnabled())
-            {
-                var logger = LogManager.GetLogger("Log1");
-                logger.Info(strContent);
-            }
+            if (!LogManager.IsLoggingEnabled())
+                return;
+
+            LogManager.GetLogger("Log1").Info(strContent);
         }
 
         public static void SaveLog(string strTitle, Exception ex)
         {
-            if (LogManager.IsLoggingEnabled())
+            if (!LogManager.IsLoggingEnabled())
+                return;
+
+            var logger = LogManager.GetLogger("Log2");
+            logger.Debug($"{strTitle},{ex.Message}");
+            logger.Debug(ex.StackTrace);
+            if (ex?.InnerException != null)
             {
-                var logger = LogManager.GetLogger("Log2");
-                logger.Debug($"{strTitle},{ex.Message}");
-                logger.Debug(ex.StackTrace);
-                if (ex?.InnerException != null)
-                {
-                    logger.Error(ex.InnerException);
-                }
+                logger.Error(ex.InnerException);
             }
         }
     }

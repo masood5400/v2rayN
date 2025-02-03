@@ -7,15 +7,11 @@ namespace ServiceLib.Handler
         private static readonly Lazy<ClashApiHandler> instance = new(() => new());
         public static ClashApiHandler Instance => instance.Value;
 
-        private Dictionary<String, ProxiesItem>? _proxies;
+        private Dictionary<string, ProxiesItem>? _proxies;
         public Dictionary<string, object> ProfileContent { get; set; }
+        private static readonly string _tag = "ClashApiHandler";
 
-        public void GetClashProxies(Config config, Action<ClashProxies, ClashProviders> update)
-        {
-            Task.Run(() => GetClashProxiesAsync(config, update));
-        }
-
-        private async Task GetClashProxiesAsync(Config config, Action<ClashProxies, ClashProviders> update)
+        public async Task<Tuple<ClashProxies, ClashProviders>?> GetClashProxiesAsync(Config config)
         {
             for (var i = 0; i < 5; i++)
             {
@@ -30,74 +26,75 @@ namespace ServiceLib.Handler
                 if (clashProxies != null || clashProviders != null)
                 {
                     _proxies = clashProxies?.proxies;
-                    update(clashProxies, clashProviders);
-                    return;
+                    return new Tuple<ClashProxies, ClashProviders>(clashProxies, clashProviders);
                 }
-                Task.Delay(5000).Wait();
+
+                await Task.Delay(2000);
             }
-            update(null, null);
+
+            return null;
         }
 
-        public void ClashProxiesDelayTest(bool blAll, List<ClashProxyModel> lstProxy, Action<ClashProxyModel?, string> update)
+        public void ClashProxiesDelayTest(bool blAll, List<ClashProxyModel> lstProxy, Action<ClashProxyModel?, string> updateFunc)
         {
             Task.Run(() =>
+        {
+            if (blAll)
             {
-                if (blAll)
+                for (int i = 0; i < 5; i++)
                 {
-                    for (int i = 0; i < 5; i++)
+                    if (_proxies != null)
                     {
-                        if (_proxies != null)
-                        {
-                            break;
-                        }
-                        Task.Delay(5000).Wait();
+                        break;
                     }
-                    if (_proxies == null)
-                    {
-                        return;
-                    }
-                    lstProxy = new List<ClashProxyModel>();
-                    foreach (KeyValuePair<string, ProxiesItem> kv in _proxies)
-                    {
-                        if (Global.notAllowTestType.Contains(kv.Value.type.ToLower()))
-                        {
-                            continue;
-                        }
-                        lstProxy.Add(new ClashProxyModel()
-                        {
-                            name = kv.Value.name,
-                            type = kv.Value.type.ToLower(),
-                        });
-                    }
+                    Task.Delay(5000).Wait();
                 }
-
-                if (lstProxy == null)
+                if (_proxies == null)
                 {
                     return;
                 }
-                var urlBase = $"{GetApiUrl()}/proxies";
-                urlBase += @"/{0}/delay?timeout=10000&url=" + AppHandler.Instance.Config.speedTestItem.speedPingTestUrl;
-
-                List<Task> tasks = new List<Task>();
-                foreach (var it in lstProxy)
+                lstProxy = new List<ClashProxyModel>();
+                foreach (KeyValuePair<string, ProxiesItem> kv in _proxies)
                 {
-                    if (Global.notAllowTestType.Contains(it.type.ToLower()))
+                    if (Global.notAllowTestType.Contains(kv.Value.type.ToLower()))
                     {
                         continue;
                     }
-                    var name = it.name;
-                    var url = string.Format(urlBase, name);
-                    tasks.Add(Task.Run(async () =>
+                    lstProxy.Add(new ClashProxyModel()
                     {
-                        var result = await HttpClientHelper.Instance.TryGetAsync(url);
-                        update(it, result);
-                    }));
+                        Name = kv.Value.name,
+                        Type = kv.Value.type.ToLower(),
+                    });
                 }
-                Task.WaitAll(tasks.ToArray());
+            }
 
-                Task.Delay(1000).Wait();
-                update(null, "");
-            });
+            if (lstProxy == null)
+            {
+                return;
+            }
+            var urlBase = $"{GetApiUrl()}/proxies";
+            urlBase += @"/{0}/delay?timeout=10000&url=" + AppHandler.Instance.Config.SpeedTestItem.SpeedPingTestUrl;
+
+            List<Task> tasks = new List<Task>();
+            foreach (var it in lstProxy)
+            {
+                if (Global.notAllowTestType.Contains(it.Type.ToLower()))
+                {
+                    continue;
+                }
+                var name = it.Name;
+                var url = string.Format(urlBase, name);
+                tasks.Add(Task.Run(async () =>
+                {
+                    var result = await HttpClientHelper.Instance.TryGetAsync(url);
+                    updateFunc?.Invoke(it, result);
+                }));
+            }
+            Task.WaitAll(tasks.ToArray());
+
+            Task.Delay(1000).Wait();
+            updateFunc?.Invoke(null, "");
+        });
         }
 
         public List<ProxiesItem>? GetClashProxyGroups()
@@ -113,12 +110,12 @@ namespace ServiceLib.Handler
             }
             catch (Exception ex)
             {
-                Logging.SaveLog("GetClashProxyGroups", ex);
+                Logging.SaveLog(_tag, ex);
                 return null;
             }
         }
 
-        public async void ClashSetActiveProxy(string name, string nameNode)
+        public async Task ClashSetActiveProxy(string name, string nameNode)
         {
             try
             {
@@ -129,28 +126,25 @@ namespace ServiceLib.Handler
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 
-        public void ClashConfigUpdate(Dictionary<string, string> headers)
+        public async Task ClashConfigUpdate(Dictionary<string, string> headers)
         {
-            Task.Run(async () =>
+            if (_proxies == null)
             {
-                if (_proxies == null)
-                {
-                    return;
-                }
+                return;
+            }
 
-                var urlBase = $"{GetApiUrl()}/configs";
+            var urlBase = $"{GetApiUrl()}/configs";
 
-                await HttpClientHelper.Instance.PatchAsync(urlBase, headers);
-            });
+            await HttpClientHelper.Instance.PatchAsync(urlBase, headers);
         }
 
-        public async void ClashConfigReload(string filePath)
+        public async Task ClashConfigReload(string filePath)
         {
-            ClashConnectionClose("");
+            await ClashConnectionClose("");
             try
             {
                 var url = $"{GetApiUrl()}/configs?force=true";
@@ -160,16 +154,11 @@ namespace ServiceLib.Handler
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 
-        public void GetClashConnections(Config config, Action<ClashConnections> update)
-        {
-            Task.Run(() => GetClashConnectionsAsync(config, update));
-        }
-
-        private async Task GetClashConnectionsAsync(Config config, Action<ClashConnections> update)
+        public async Task<ClashConnections?> GetClashConnectionsAsync(Config config)
         {
             try
             {
@@ -177,15 +166,17 @@ namespace ServiceLib.Handler
                 var result = await HttpClientHelper.Instance.TryGetAsync(url);
                 var clashConnections = JsonUtils.Deserialize<ClashConnections>(result);
 
-                update(clashConnections);
+                return clashConnections;
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
+
+            return null;
         }
 
-        public async void ClashConnectionClose(string id)
+        public async Task ClashConnectionClose(string id)
         {
             try
             {
@@ -194,7 +185,7 @@ namespace ServiceLib.Handler
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 

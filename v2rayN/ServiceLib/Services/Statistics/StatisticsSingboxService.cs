@@ -1,4 +1,4 @@
-﻿using System.Net.WebSockets;
+using System.Net.WebSockets;
 using System.Text;
 
 namespace ServiceLib.Services.Statistics
@@ -8,16 +8,17 @@ namespace ServiceLib.Services.Statistics
         private Config _config;
         private bool _exitFlag;
         private ClientWebSocket? webSocket;
-        private string url = string.Empty;
-        private Action<ServerSpeedItem> _updateFunc;
+        private Action<ServerSpeedItem>? _updateFunc;
+        private string Url => $"ws://{Global.Loopback}:{AppHandler.Instance.StatePort2}/traffic";
+        private static readonly string _tag = "StatisticsSingboxService";
 
-        public StatisticsSingboxService(Config config, Action<ServerSpeedItem> update)
+        public StatisticsSingboxService(Config config, Action<ServerSpeedItem> updateFunc)
         {
             _config = config;
-            _updateFunc = update;
+            _updateFunc = updateFunc;
             _exitFlag = false;
 
-            Task.Run(() => Run());
+            Task.Run(Run);
         }
 
         private async void Init()
@@ -26,12 +27,10 @@ namespace ServiceLib.Services.Statistics
 
             try
             {
-                url = $"ws://{Global.Loopback}:{AppHandler.Instance.StatePort2}/traffic";
-
                 if (webSocket == null)
                 {
                     webSocket = new ClientWebSocket();
-                    await webSocket.ConnectAsync(new Uri(url), CancellationToken.None);
+                    await webSocket.ConnectAsync(new Uri(Url), CancellationToken.None);
                 }
             }
             catch { }
@@ -50,7 +49,7 @@ namespace ServiceLib.Services.Statistics
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 
@@ -92,10 +91,10 @@ namespace ServiceLib.Services.Statistics
                             {
                                 ParseOutput(result, out ulong up, out ulong down);
 
-                                _updateFunc(new ServerSpeedItem()
+                                _updateFunc?.Invoke(new ServerSpeedItem()
                                 {
-                                    proxyUp = (long)(up / 1000),
-                                    proxyDown = (long)(down / 1000)
+                                    ProxyUp = (long)(up / 1000),
+                                    ProxyDown = (long)(down / 1000)
                                 });
                             }
                             res = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
@@ -110,14 +109,15 @@ namespace ServiceLib.Services.Statistics
 
         private void ParseOutput(string source, out ulong up, out ulong down)
         {
-            up = 0; down = 0;
+            up = 0;
+            down = 0;
             try
             {
                 var trafficItem = JsonUtils.Deserialize<TrafficItem>(source);
                 if (trafficItem != null)
                 {
-                    up = trafficItem.up;
-                    down = trafficItem.down;
+                    up = trafficItem.Up;
+                    down = trafficItem.Down;
                 }
             }
             catch

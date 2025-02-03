@@ -1,4 +1,4 @@
-﻿namespace ServiceLib.Services.CoreConfig
+namespace ServiceLib.Services.CoreConfig
 {
     /// <summary>
     /// Core configuration file processing class
@@ -6,6 +6,7 @@
     public class CoreConfigClashService
     {
         private Config _config;
+        private static readonly string _tag = "CoreConfigClashService";
 
         public CoreConfigClashService(Config config)
         {
@@ -19,22 +20,23 @@
         /// <param name="fileName"></param>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public int GenerateClientCustomConfig(ProfileItem node, string? fileName, out string msg)
+        public async Task<RetResult> GenerateClientCustomConfig(ProfileItem node, string? fileName)
         {
+            var ret = new RetResult();
             if (node == null || fileName is null)
             {
-                msg = ResUI.CheckServerSettings;
-                return -1;
+                ret.Msg = ResUI.CheckServerSettings;
+                return ret;
             }
 
-            msg = ResUI.InitialConfiguration;
+            ret.Msg = ResUI.InitialConfiguration;
 
             try
             {
                 if (node == null)
                 {
-                    msg = ResUI.CheckServerSettings;
-                    return -1;
+                    ret.Msg = ResUI.CheckServerSettings;
+                    return ret;
                 }
 
                 if (File.Exists(fileName))
@@ -42,11 +44,11 @@
                     File.Delete(fileName);
                 }
 
-                string addressFileName = node.address;
+                string addressFileName = node.Address;
                 if (Utils.IsNullOrEmpty(addressFileName))
                 {
-                    msg = ResUI.FailedGetDefaultConfiguration;
-                    return -1;
+                    ret.Msg = ResUI.FailedGetDefaultConfiguration;
+                    return ret;
                 }
                 if (!File.Exists(addressFileName))
                 {
@@ -54,8 +56,8 @@
                 }
                 if (!File.Exists(addressFileName))
                 {
-                    msg = ResUI.FailedReadConfiguration + "1";
-                    return -1;
+                    ret.Msg = ResUI.FailedReadConfiguration + "1";
+                    return ret;
                 }
 
                 string tagYamlStr1 = "!<str>";
@@ -65,7 +67,7 @@
                 txtFile = txtFile.Replace(tagYamlStr1, tagYamlStr2);
 
                 //YAML anchors
-                if (txtFile.Contains("<<:") && txtFile.Contains("*") && txtFile.Contains("&"))
+                if (txtFile.Contains("<<:") && txtFile.Contains('*') && txtFile.Contains('&'))
                 {
                     txtFile = YamlUtils.PreprocessYaml(txtFile);
                 }
@@ -73,21 +75,19 @@
                 var fileContent = YamlUtils.FromYaml<Dictionary<string, object>>(txtFile);
                 if (fileContent == null)
                 {
-                    msg = ResUI.FailedConversionConfiguration;
-                    return -1;
+                    ret.Msg = ResUI.FailedConversionConfiguration;
+                    return ret;
                 }
 
-                //port
-                fileContent["port"] = AppHandler.Instance.GetLocalPort(EInboundProtocol.http);
-                //socks-port
-                fileContent["socks-port"] = AppHandler.Instance.GetLocalPort(EInboundProtocol.socks);
+                //mixed-port
+                fileContent["mixed-port"] = AppHandler.Instance.GetLocalPort(EInboundProtocol.socks);
                 //log-level
-                fileContent["log-level"] = GetLogLevel(_config.coreBasicItem.loglevel);
+                fileContent["log-level"] = GetLogLevel(_config.CoreBasicItem.Loglevel);
 
                 //external-controller
                 fileContent["external-controller"] = $"{Global.Loopback}:{AppHandler.Instance.StatePort2}";
                 //allow-lan
-                if (_config.inbound[0].allowLANConn)
+                if (_config.Inbound.First().AllowLANConn)
                 {
                     fileContent["allow-lan"] = "true";
                     fileContent["bind-address"] = "*";
@@ -98,7 +98,7 @@
                 }
 
                 //ipv6
-                fileContent["ipv6"] = _config.clashUIItem.enableIPv6;
+                fileContent["ipv6"] = _config.ClashUIItem.EnableIPv6;
 
                 //mode
                 if (!fileContent.ContainsKey("mode"))
@@ -107,16 +107,16 @@
                 }
                 else
                 {
-                    if (_config.clashUIItem.ruleMode != ERuleMode.Unchanged)
+                    if (_config.ClashUIItem.RuleMode != ERuleMode.Unchanged)
                     {
-                        fileContent["mode"] = _config.clashUIItem.ruleMode.ToString().ToLower();
+                        fileContent["mode"] = _config.ClashUIItem.RuleMode.ToString().ToLower();
                     }
                 }
 
                 //enable tun mode
-                if (_config.tunModeItem.enableTun)
+                if (_config.TunModeItem.EnableTun)
                 {
-                    string tun = Utils.GetEmbedText(Global.ClashTunYaml);
+                    string tun = EmbedUtils.GetEmbedText(Global.ClashTunYaml);
                     if (Utils.IsNotEmpty(tun))
                     {
                         var tunContent = YamlUtils.FromYaml<Dictionary<string, object>>(tun);
@@ -132,29 +132,30 @@
                 }
                 catch (Exception ex)
                 {
-                    Logging.SaveLog("GenerateClientConfigClash-Mixin", ex);
+                    Logging.SaveLog($"{_tag}-Mixin", ex);
                 }
 
                 var txtFileNew = YamlUtils.ToYaml(fileContent).Replace(tagYamlStr2, tagYamlStr3);
-                File.WriteAllText(fileName, txtFileNew);
+                await File.WriteAllTextAsync(fileName, txtFileNew);
                 //check again
                 if (!File.Exists(fileName))
                 {
-                    msg = ResUI.FailedReadConfiguration + "2";
-                    return -1;
+                    ret.Msg = ResUI.FailedReadConfiguration + "2";
+                    return ret;
                 }
 
                 ClashApiHandler.Instance.ProfileContent = fileContent;
 
-                msg = string.Format(ResUI.SuccessfulConfiguration, $"{node.GetSummary()}");
+                ret.Msg = string.Format(ResUI.SuccessfulConfiguration, $"{node.GetSummary()}");
+                ret.Success = true;
+                return ret;
             }
             catch (Exception ex)
             {
-                Logging.SaveLog("GenerateClientConfigClash", ex);
-                msg = ResUI.FailedGenDefaultConfiguration;
-                return -1;
+                Logging.SaveLog(_tag, ex);
+                ret.Msg = ResUI.FailedGenDefaultConfiguration;
+                return ret;
             }
-            return 0;
         }
 
         private void MixinContent(Dictionary<string, object> fileContent, ProfileItem node)
@@ -179,7 +180,7 @@
             }
             foreach (var item in mixinContent)
             {
-                if (!_config.tunModeItem.enableTun && item.Key == "tun")
+                if (!_config.TunModeItem.EnableTun && item.Key == "tun")
                 {
                     continue;
                 }

@@ -5,86 +5,51 @@
     /// </summary>
     public class CoreConfigHandler
     {
-        public static int GenerateClientConfig(ProfileItem node, string? fileName, out string msg, out string content)
-        {
-            content = string.Empty;
-            try
-            {
-                if (node == null)
-                {
-                    msg = ResUI.CheckServerSettings;
-                    return -1;
-                }
-                var config = AppHandler.Instance.Config;
+        private static readonly string _tag = "CoreConfigHandler";
 
-                msg = ResUI.InitialConfiguration;
-                if (node.configType == EConfigType.Custom)
-                {
-                    if (node.coreType is ECoreType.mihomo)
-                    {
-                        var configGenClash = new CoreConfigClashService(config);
-                        return configGenClash.GenerateClientCustomConfig(node, fileName, out msg);
-                    }
-                    if (node.coreType is ECoreType.sing_box)
-                    {
-                        var configGenSingbox = new CoreConfigSingboxService(config);
-                        return configGenSingbox.GenerateClientCustomConfig(node, fileName, out msg);
-                    }
-                    else
-                    {
-                        return GenerateClientCustomConfig(node, fileName, out msg);
-                    }
-                }
-                else if (AppHandler.Instance.GetCoreType(node, node.configType) == ECoreType.sing_box)
-                {
-                    var configGenSingbox = new CoreConfigSingboxService(config);
-                    if (configGenSingbox.GenerateClientConfigContent(node, out SingboxConfig? singboxConfig, out msg) != 0)
-                    {
-                        return -1;
-                    }
-                    if (Utils.IsNullOrEmpty(fileName))
-                    {
-                        content = JsonUtils.Serialize(singboxConfig);
-                    }
-                    else
-                    {
-                        JsonUtils.ToFile(singboxConfig, fileName, false);
-                    }
-                }
-                else
-                {
-                    var coreConfigV2ray = new CoreConfigV2rayService(config);
-                    if (coreConfigV2ray.GenerateClientConfigContent(node, out V2rayConfig? v2rayConfig, out msg) != 0)
-                    {
-                        return -1;
-                    }
-                    if (Utils.IsNullOrEmpty(fileName))
-                    {
-                        content = JsonUtils.Serialize(v2rayConfig);
-                    }
-                    else
-                    {
-                        JsonUtils.ToFile(v2rayConfig, fileName, false);
-                    }
-                }
-            }
-            catch (Exception ex)
+        public static async Task<RetResult> GenerateClientConfig(ProfileItem node, string? fileName)
+        {
+            var config = AppHandler.Instance.Config;
+            var result = new RetResult();
+
+            if (node.ConfigType == EConfigType.Custom)
             {
-                Logging.SaveLog("GenerateClientConfig", ex);
-                msg = ResUI.FailedGenDefaultConfiguration;
-                return -1;
+                result = node.CoreType switch
+                {
+                    ECoreType.mihomo => await new CoreConfigClashService(config).GenerateClientCustomConfig(node, fileName),
+                    ECoreType.sing_box => await new CoreConfigSingboxService(config).GenerateClientCustomConfig(node, fileName),
+                    _ => await GenerateClientCustomConfig(node, fileName)
+                };
             }
-            return 0;
+            else if (AppHandler.Instance.GetCoreType(node, node.ConfigType) == ECoreType.sing_box)
+            {
+                result = await new CoreConfigSingboxService(config).GenerateClientConfigContent(node);
+            }
+            else
+            {
+                result = await new CoreConfigV2rayService(config).GenerateClientConfigContent(node);
+            }
+            if (result.Success != true)
+            {
+                return result;
+            }
+            if (Utils.IsNotEmpty(fileName) && result.Data != null)
+            {
+                await File.WriteAllTextAsync(fileName, result.Data.ToString());
+            }
+
+            return result;
         }
 
-        private static int GenerateClientCustomConfig(ProfileItem node, string? fileName, out string msg)
+        private static async Task<RetResult> GenerateClientCustomConfig(ProfileItem node, string? fileName)
         {
+            var ret = new RetResult();
             try
             {
                 if (node == null || fileName is null)
                 {
-                    msg = ResUI.CheckServerSettings;
-                    return -1;
+                    ret.Msg = ResUI.CheckServerSettings;
+                    return ret;
                 }
 
                 if (File.Exists(fileName))
@@ -93,15 +58,15 @@
                     File.Delete(fileName);
                 }
 
-                string addressFileName = node.address;
+                string addressFileName = node.Address;
                 if (!File.Exists(addressFileName))
                 {
                     addressFileName = Utils.GetConfigPath(addressFileName);
                 }
                 if (!File.Exists(addressFileName))
                 {
-                    msg = ResUI.FailedGenDefaultConfiguration;
-                    return -1;
+                    ret.Msg = ResUI.FailedGenDefaultConfiguration;
+                    return ret;
                 }
                 File.Copy(addressFileName, fileName);
                 File.SetAttributes(fileName, FileAttributes.Normal); //Copy will keep the attributes of addressFileName, so we need to add write permissions to fileName just in case of addressFileName is a read-only file.
@@ -109,63 +74,59 @@
                 //check again
                 if (!File.Exists(fileName))
                 {
-                    msg = ResUI.FailedGenDefaultConfiguration;
-                    return -1;
+                    ret.Msg = ResUI.FailedGenDefaultConfiguration;
+                    return ret;
                 }
 
-                msg = string.Format(ResUI.SuccessfulConfiguration, "");
+                ret.Msg = string.Format(ResUI.SuccessfulConfiguration, "");
+                ret.Success = true;
+                return await Task.FromResult(ret);
             }
             catch (Exception ex)
             {
-                Logging.SaveLog("GenerateClientCustomConfig", ex);
-                msg = ResUI.FailedGenDefaultConfiguration;
-                return -1;
+                Logging.SaveLog(_tag, ex);
+                ret.Msg = ResUI.FailedGenDefaultConfiguration;
+                return ret;
             }
-            return 0;
         }
 
-        public static int GenerateClientSpeedtestConfig(Config config, string fileName, List<ServerTestItem> selecteds, ECoreType coreType, out string msg)
+        public static async Task<RetResult> GenerateClientSpeedtestConfig(Config config, string fileName, List<ServerTestItem> selecteds, ECoreType coreType)
         {
+            var result = new RetResult();
             if (coreType == ECoreType.sing_box)
             {
-                if (new CoreConfigSingboxService(config).GenerateClientSpeedtestConfig(selecteds, out SingboxConfig? singboxConfig, out msg) != 0)
-                {
-                    return -1;
-                }
-                JsonUtils.ToFile(singboxConfig, fileName, false);
-            }
-            else
-            {
-                if (new CoreConfigV2rayService(config).GenerateClientSpeedtestConfig(selecteds, out V2rayConfig? v2rayConfig, out msg) != 0)
-                {
-                    return -1;
-                }
-                JsonUtils.ToFile(v2rayConfig, fileName, false);
-            }
-            return 0;
-        }
-
-        public static int GenerateClientMultipleLoadConfig(Config config, string fileName, List<ProfileItem> selecteds, ECoreType coreType, out string msg)
-        {
-            msg = ResUI.CheckServerSettings;
-            if (coreType == ECoreType.sing_box)
-            {
-                if (new CoreConfigSingboxService(config).GenerateClientMultipleLoadConfig(selecteds, out SingboxConfig? singboxConfig, out msg) != 0)
-                {
-                    return -1;
-                }
-                JsonUtils.ToFile(singboxConfig, fileName, false);
+                result = await new CoreConfigSingboxService(config).GenerateClientSpeedtestConfig(selecteds);
             }
             else if (coreType == ECoreType.Xray)
             {
-                if (new CoreConfigV2rayService(config).GenerateClientMultipleLoadConfig(selecteds, out V2rayConfig? v2rayConfig, out msg) != 0)
-                {
-                    return -1;
-                }
-                JsonUtils.ToFile(v2rayConfig, fileName, false);
+                result = await new CoreConfigV2rayService(config).GenerateClientSpeedtestConfig(selecteds);
+            }
+            if (result.Success != true)
+            {
+                return result;
+            }
+            await File.WriteAllTextAsync(fileName, result.Data.ToString());
+            return result;
+        }
+
+        public static async Task<RetResult> GenerateClientMultipleLoadConfig(Config config, string fileName, List<ProfileItem> selecteds, ECoreType coreType)
+        {
+            var result = new RetResult();
+            if (coreType == ECoreType.sing_box)
+            {
+                result = await new CoreConfigSingboxService(config).GenerateClientMultipleLoadConfig(selecteds);
+            }
+            else if (coreType == ECoreType.Xray)
+            {
+                result = await new CoreConfigV2rayService(config).GenerateClientMultipleLoadConfig(selecteds);
             }
 
-            return 0;
+            if (result.Success != true)
+            {
+                return result;
+            }
+            await File.WriteAllTextAsync(fileName, result.Data.ToString());
+            return result;
         }
     }
 }

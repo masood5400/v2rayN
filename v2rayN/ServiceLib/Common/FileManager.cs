@@ -1,10 +1,13 @@
-﻿using System.IO.Compression;
+﻿using System.Formats.Tar;
+using System.IO.Compression;
 using System.Text;
 
 namespace ServiceLib.Common
 {
     public static class FileManager
     {
+        private static readonly string _tag = "FileManager";
+
         public static bool ByteArrayToFile(string fileName, byte[] content)
         {
             try
@@ -14,38 +17,52 @@ namespace ServiceLib.Common
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
             return false;
         }
 
-        public static void UncompressedFile(string fileName, byte[] content)
+        public static void DecompressFile(string fileName, byte[] content)
         {
             try
             {
-                using FileStream fs = File.Create(fileName);
+                using var fs = File.Create(fileName);
                 using GZipStream input = new(new MemoryStream(content), CompressionMode.Decompress, false);
                 input.CopyTo(fs);
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 
-        public static void UncompressedFile(string fileName, string toPath, string? toName)
+        public static void DecompressFile(string fileName, string toPath, string? toName)
         {
             try
             {
                 FileInfo fileInfo = new(fileName);
-                using FileStream originalFileStream = fileInfo.OpenRead();
-                using FileStream decompressedFileStream = File.Create(toName != null ? Path.Combine(toPath, toName) : toPath);
+                using var originalFileStream = fileInfo.OpenRead();
+                using var decompressedFileStream = File.Create(toName != null ? Path.Combine(toPath, toName) : toPath);
                 using GZipStream decompressionStream = new(originalFileStream, CompressionMode.Decompress);
                 decompressionStream.CopyTo(decompressedFileStream);
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
+            }
+        }
+
+        public static void DecompressTarFile(string fileName, string toPath)
+        {
+            try
+            {
+                using var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+                using var gz = new GZipStream(fs, CompressionMode.Decompress, leaveOpen: true);
+                TarFile.ExtractToDirectory(gz, toPath, overwriteFiles: true);
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog(_tag, ex);
             }
         }
 
@@ -54,7 +71,7 @@ namespace ServiceLib.Common
             return NonExclusiveReadAllText(path, Encoding.Default);
         }
 
-        public static string NonExclusiveReadAllText(string path, Encoding encoding)
+        private static string NonExclusiveReadAllText(string path, Encoding encoding)
         {
             try
             {
@@ -64,7 +81,7 @@ namespace ServiceLib.Common
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
                 throw;
             }
         }
@@ -73,8 +90,8 @@ namespace ServiceLib.Common
         {
             try
             {
-                using ZipArchive archive = ZipFile.OpenRead(fileName);
-                foreach (ZipArchiveEntry entry in archive.Entries)
+                using var archive = ZipFile.OpenRead(fileName);
+                foreach (var entry in archive.Entries)
                 {
                     if (entry.Length == 0)
                     {
@@ -90,13 +107,13 @@ namespace ServiceLib.Common
                     }
                     catch (IOException ex)
                     {
-                        Logging.SaveLog(ex.Message, ex);
+                        Logging.SaveLog(_tag, ex);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
                 return false;
             }
             return true;
@@ -110,12 +127,12 @@ namespace ServiceLib.Common
             }
             try
             {
-                using ZipArchive archive = ZipFile.OpenRead(fileName);
+                using var archive = ZipFile.OpenRead(fileName);
                 return archive.Entries.Select(entry => entry.FullName).ToList();
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
                 return null;
             }
         }
@@ -133,13 +150,13 @@ namespace ServiceLib.Common
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
                 return false;
             }
             return true;
         }
 
-        public static void CopyDirectory(string sourceDir, string destinationDir, bool recursive, string ignoredName)
+        public static void CopyDirectory(string sourceDir, string destinationDir, bool recursive, bool overwrite, string? ignoredName = null)
         {
             // Get information about the source directory
             var dir = new DirectoryInfo(sourceDir);
@@ -149,13 +166,13 @@ namespace ServiceLib.Common
                 throw new DirectoryNotFoundException($"Source directory not found: {dir.FullName}");
 
             // Cache directories before we start copying
-            DirectoryInfo[] dirs = dir.GetDirectories();
+            var dirs = dir.GetDirectories();
 
             // Create the destination directory
             Directory.CreateDirectory(destinationDir);
 
             // Get the files in the source directory and copy to the destination directory
-            foreach (FileInfo file in dir.GetFiles())
+            foreach (var file in dir.GetFiles())
             {
                 if (Utils.IsNotEmpty(ignoredName) && file.Name.Contains(ignoredName))
                 {
@@ -165,18 +182,43 @@ namespace ServiceLib.Common
                 {
                     continue;
                 }
-                string targetFilePath = Path.Combine(destinationDir, file.Name);
-                file.CopyTo(targetFilePath);
+                var targetFilePath = Path.Combine(destinationDir, file.Name);
+                if (!overwrite && File.Exists(targetFilePath))
+                {
+                    continue;
+                }
+                file.CopyTo(targetFilePath, overwrite);
             }
 
             // If recursive and copying subdirectories, recursively call this method
             if (recursive)
             {
-                foreach (DirectoryInfo subDir in dirs)
+                foreach (var subDir in dirs)
                 {
-                    string newDestinationDir = Path.Combine(destinationDir, subDir.Name);
-                    CopyDirectory(subDir.FullName, newDestinationDir, true, ignoredName);
+                    var newDestinationDir = Path.Combine(destinationDir, subDir.Name);
+                    CopyDirectory(subDir.FullName, newDestinationDir, true, overwrite, ignoredName);
                 }
+            }
+        }
+
+        public static void DeleteExpiredFiles(string sourceDir, DateTime dtLine)
+        {
+            try
+            {
+                var files = Directory.GetFiles(sourceDir, "*.*");
+                foreach (var filePath in files)
+                {
+                    var file = new FileInfo(filePath);
+                    if (file.CreationTime >= dtLine)
+                    {
+                        continue;
+                    }
+                    file.Delete();
+                }
+            }
+            catch
+            {
+                // ignored
             }
         }
     }

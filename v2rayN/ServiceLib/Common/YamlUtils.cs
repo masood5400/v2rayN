@@ -6,6 +6,8 @@ namespace ServiceLib.Common
 {
     public class YamlUtils
     {
+        private static readonly string _tag = "YamlUtils";
+
         #region YAML
 
         /// <summary>
@@ -21,12 +23,12 @@ namespace ServiceLib.Common
                 .Build();
             try
             {
-                T obj = deserializer.Deserialize<T>(str);
+                var obj = deserializer.Deserialize<T>(str);
                 return obj;
             }
             catch (Exception ex)
             {
-                Logging.SaveLog("FromYaml", ex);
+                Logging.SaveLog(_tag, ex);
                 return deserializer.Deserialize<T>("");
             }
         }
@@ -36,9 +38,9 @@ namespace ServiceLib.Common
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public static string ToYaml(Object? obj)
+        public static string ToYaml(object? obj)
         {
-            string result = string.Empty;
+            var result = string.Empty;
             if (obj == null)
             {
                 return result;
@@ -53,7 +55,7 @@ namespace ServiceLib.Common
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
             return result;
         }
@@ -71,7 +73,7 @@ namespace ServiceLib.Common
             }
             catch (Exception ex)
             {
-                Logging.SaveLog("PreprocessYaml", ex);
+                Logging.SaveLog(_tag, ex);
                 return null;
             }
         }

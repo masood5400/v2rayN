@@ -2,11 +2,14 @@
 {
     public sealed class AppHandler
     {
+        #region Property
+
         private static readonly Lazy<AppHandler> _instance = new(() => new());
         private Config _config;
         private int? _statePort;
         private int? _statePort2;
         private Job? _processJob;
+        private bool? _isAdministrator;
         public static AppHandler Instance => _instance.Value;
         public Config Config => _config;
 
@@ -24,39 +27,44 @@
             get
             {
                 _statePort2 ??= Utils.GetFreePort(GetLocalPort(EInboundProtocol.api2));
-                return _statePort2.Value;
+                return _statePort2.Value + (_config.TunModeItem.EnableTun ? 1 : 0);
             }
         }
+
+        public bool IsAdministrator
+        {
+            get
+            {
+                _isAdministrator ??= Utils.IsAdministrator();
+                return _isAdministrator.Value;
+            }
+        }
+
+        #endregion Property
 
         #region Init
 
-        public AppHandler()
-        {
-        }
-
         public bool InitApp()
         {
-            if (ConfigHandler.LoadConfig(ref _config) != 0)
+            if (Utils.HasWritePermission() == false)
+            {
+                Environment.SetEnvironmentVariable(Global.LocalAppData, "1", EnvironmentVariableTarget.Process);
+            }
+
+            Logging.Setup();
+            var config = ConfigHandler.LoadConfig();
+            if (config == null)
             {
                 return false;
             }
-            Thread.CurrentThread.CurrentUICulture = new(_config.uiItem.currentLanguage);
+            _config = config;
+            Thread.CurrentThread.CurrentUICulture = new(_config.UiItem.CurrentLanguage);
 
             //Under Win10
             if (Utils.IsWindows() && Environment.OSVersion.Version.Major < 10)
             {
                 Environment.SetEnvironmentVariable("DOTNET_EnableWriteXorExecute", "0", EnvironmentVariableTarget.User);
             }
-            return true;
-        }
-
-        public bool InitComponents()
-        {
-            Logging.Setup();
-            Logging.LoggingEnabled(true);
-            Logging.SaveLog($"v2rayN start up | {Utils.GetVersion()} | {Utils.GetExePath()}");
-            Logging.SaveLog($"{Environment.OSVersion} - {(Environment.Is64BitOperatingSystem ? 64 : 32)}");
-            Logging.ClearLogs();
 
             SQLiteHelper.Instance.CreateTable<SubItem>();
             SQLiteHelper.Instance.CreateTable<ProfileItem>();
@@ -64,8 +72,33 @@
             SQLiteHelper.Instance.CreateTable<RoutingItem>();
             SQLiteHelper.Instance.CreateTable<ProfileExItem>();
             SQLiteHelper.Instance.CreateTable<DNSItem>();
+            return true;
+        }
+
+        public bool InitComponents()
+        {
+            Logging.SaveLog($"v2rayN start up | {Utils.GetRuntimeInfo()}");
+            Logging.LoggingEnabled(_config.GuiItem.EnableLog);
+
+            ClearExpiredFiles();
 
             return true;
+        }
+
+        public bool Reset()
+        {
+            _statePort = null;
+            _statePort2 = null;
+            return true;
+        }
+
+        private void ClearExpiredFiles()
+        {
+            Task.Run(() =>
+            {
+                FileManager.DeleteExpiredFiles(Utils.GetLogPath(), DateTime.Now.AddMonths(-1));
+                FileManager.DeleteExpiredFiles(Utils.GetTempPath(), DateTime.Now.AddMonths(-1));
+            });
         }
 
         #endregion Init
@@ -74,7 +107,7 @@
 
         public int GetLocalPort(EInboundProtocol protocol)
         {
-            var localPort = _config.inbound.FirstOrDefault(t => t.protocol == nameof(EInboundProtocol.socks))?.localPort ?? 10808;
+            var localPort = _config.Inbound.FirstOrDefault(t => t.Protocol == nameof(EInboundProtocol.socks))?.LocalPort ?? 10808;
             return localPort + (int)protocol;
         }
 
@@ -83,7 +116,13 @@
             if (Utils.IsWindows())
             {
                 _processJob ??= new();
-                _processJob?.AddProcess(processHandle);
+                try
+                {
+                    _processJob?.AddProcess(processHandle);
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -91,41 +130,34 @@
 
         #region SqliteHelper
 
-        public List<SubItem> SubItems()
+        public async Task<List<SubItem>?> SubItems()
         {
-            return SQLiteHelper.Instance.Table<SubItem>().ToList();
+            return await SQLiteHelper.Instance.TableAsync<SubItem>().OrderBy(t => t.Sort).ToListAsync();
         }
 
-        public SubItem GetSubItem(string subid)
+        public async Task<SubItem?> GetSubItem(string? subid)
         {
-            return SQLiteHelper.Instance.Table<SubItem>().FirstOrDefault(t => t.id == subid);
+            return await SQLiteHelper.Instance.TableAsync<SubItem>().FirstOrDefaultAsync(t => t.Id == subid);
         }
 
-        public List<ProfileItem> ProfileItems(string subid)
-        {
-            if (Utils.IsNullOrEmpty(subid))
-            {
-                return SQLiteHelper.Instance.Table<ProfileItem>().ToList();
-            }
-            else
-            {
-                return SQLiteHelper.Instance.Table<ProfileItem>().Where(t => t.subid == subid).ToList();
-            }
-        }
-
-        public List<string> ProfileItemIndexes(string subid)
+        public async Task<List<ProfileItem>?> ProfileItems(string subid)
         {
             if (Utils.IsNullOrEmpty(subid))
             {
-                return SQLiteHelper.Instance.Table<ProfileItem>().Select(t => t.indexId).ToList();
+                return await SQLiteHelper.Instance.TableAsync<ProfileItem>().ToListAsync();
             }
             else
             {
-                return SQLiteHelper.Instance.Table<ProfileItem>().Where(t => t.subid == subid).Select(t => t.indexId).ToList();
+                return await SQLiteHelper.Instance.TableAsync<ProfileItem>().Where(t => t.Subid == subid).ToListAsync();
             }
         }
 
-        public List<ProfileItemModel> ProfileItems(string subid, string filter)
+        public async Task<List<string>?> ProfileItemIndexes(string subid)
+        {
+            return (await ProfileItems(subid))?.Select(t => t.IndexId)?.ToList();
+        }
+
+        public async Task<List<ProfileItemModel>?> ProfileItems(string subid, string filter)
         {
             var sql = @$"select a.*
                            ,b.remarks subRemarks
@@ -142,87 +174,48 @@
                 {
                     filter = filter.Replace("'", "");
                 }
-                sql += String.Format(" and (a.remarks like '%{0}%' or a.address like '%{0}%') ", filter);
+                sql += string.Format(" and (a.remarks like '%{0}%' or a.address like '%{0}%') ", filter);
             }
 
-            return SQLiteHelper.Instance.Query<ProfileItemModel>(sql).ToList();
+            return await SQLiteHelper.Instance.QueryAsync<ProfileItemModel>(sql);
         }
 
-        public List<ProfileItemModel> ProfileItemsEx(string subid, string filter)
-        {
-            var lstModel = ProfileItems(_config.subIndexId, filter);
-
-            ConfigHandler.SetDefaultServer(_config, lstModel);
-
-            var lstServerStat = (_config.guiItem.enableStatistics ? StatisticsHandler.Instance.ServerStat : null) ?? [];
-            var lstProfileExs = ProfileExHandler.Instance.ProfileExs;
-            lstModel = (from t in lstModel
-                        join t2 in lstServerStat on t.indexId equals t2.indexId into t2b
-                        from t22 in t2b.DefaultIfEmpty()
-                        join t3 in lstProfileExs on t.indexId equals t3.indexId into t3b
-                        from t33 in t3b.DefaultIfEmpty()
-                        select new ProfileItemModel
-                        {
-                            indexId = t.indexId,
-                            configType = t.configType,
-                            remarks = t.remarks,
-                            address = t.address,
-                            port = t.port,
-                            security = t.security,
-                            network = t.network,
-                            streamSecurity = t.streamSecurity,
-                            subid = t.subid,
-                            subRemarks = t.subRemarks,
-                            isActive = t.indexId == _config.indexId,
-                            sort = t33 == null ? 0 : t33.sort,
-                            delay = t33 == null ? 0 : t33.delay,
-                            delayVal = t33?.delay != 0 ? $"{t33?.delay} {Global.DelayUnit}" : string.Empty,
-                            speedVal = t33?.speed != 0 ? $"{t33?.speed} {Global.SpeedUnit}" : string.Empty,
-                            todayDown = t22 == null ? "" : Utils.HumanFy(t22.todayDown),
-                            todayUp = t22 == null ? "" : Utils.HumanFy(t22.todayUp),
-                            totalDown = t22 == null ? "" : Utils.HumanFy(t22.totalDown),
-                            totalUp = t22 == null ? "" : Utils.HumanFy(t22.totalUp)
-                        }).OrderBy(t => t.sort).ToList();
-
-            return lstModel;
-        }
-
-        public ProfileItem? GetProfileItem(string indexId)
+        public async Task<ProfileItem?> GetProfileItem(string indexId)
         {
             if (Utils.IsNullOrEmpty(indexId))
             {
                 return null;
             }
-            return SQLiteHelper.Instance.Table<ProfileItem>().FirstOrDefault(it => it.indexId == indexId);
+            return await SQLiteHelper.Instance.TableAsync<ProfileItem>().FirstOrDefaultAsync(it => it.IndexId == indexId);
         }
 
-        public ProfileItem? GetProfileItemViaRemarks(string? remarks)
+        public async Task<ProfileItem?> GetProfileItemViaRemarks(string? remarks)
         {
             if (Utils.IsNullOrEmpty(remarks))
             {
                 return null;
             }
-            return SQLiteHelper.Instance.Table<ProfileItem>().FirstOrDefault(it => it.remarks == remarks);
+            return await SQLiteHelper.Instance.TableAsync<ProfileItem>().FirstOrDefaultAsync(it => it.Remarks == remarks);
         }
 
-        public List<RoutingItem> RoutingItems()
+        public async Task<List<RoutingItem>?> RoutingItems()
         {
-            return SQLiteHelper.Instance.Table<RoutingItem>().Where(it => it.locked == false).OrderBy(t => t.sort).ToList();
+            return await SQLiteHelper.Instance.TableAsync<RoutingItem>().OrderBy(t => t.Sort).ToListAsync();
         }
 
-        public RoutingItem GetRoutingItem(string id)
+        public async Task<RoutingItem?> GetRoutingItem(string id)
         {
-            return SQLiteHelper.Instance.Table<RoutingItem>().FirstOrDefault(it => it.locked == false && it.id == id);
+            return await SQLiteHelper.Instance.TableAsync<RoutingItem>().FirstOrDefaultAsync(it => it.Id == id);
         }
 
-        public List<DNSItem> DNSItems()
+        public async Task<List<DNSItem>?> DNSItems()
         {
-            return SQLiteHelper.Instance.Table<DNSItem>().ToList();
+            return await SQLiteHelper.Instance.TableAsync<DNSItem>().ToListAsync();
         }
 
-        public DNSItem GetDNSItem(ECoreType eCoreType)
+        public async Task<DNSItem?> GetDNSItem(ECoreType eCoreType)
         {
-            return SQLiteHelper.Instance.Table<DNSItem>().FirstOrDefault(it => it.coreType == eCoreType);
+            return await SQLiteHelper.Instance.TableAsync<DNSItem>().FirstOrDefaultAsync(it => it.CoreType == eCoreType);
         }
 
         #endregion SqliteHelper
@@ -243,26 +236,18 @@
                 case ECoreType.sing_box:
                     return Global.SsSecuritiesInSingbox;
             }
-            return Global.SsSecuritiesInSagerNet;
+            return Global.SsSecuritiesInSingbox;
         }
 
         public ECoreType GetCoreType(ProfileItem profileItem, EConfigType eConfigType)
         {
-            if (profileItem?.coreType != null)
+            if (profileItem?.CoreType != null)
             {
-                return (ECoreType)profileItem.coreType;
+                return (ECoreType)profileItem.CoreType;
             }
 
-            if (_config.coreTypeItem == null)
-            {
-                return ECoreType.Xray;
-            }
-            var item = _config.coreTypeItem.FirstOrDefault(it => it.configType == eConfigType);
-            if (item == null)
-            {
-                return ECoreType.Xray;
-            }
-            return item.coreType;
+            var item = _config.CoreTypeItem?.FirstOrDefault(it => it.ConfigType == eConfigType);
+            return item?.CoreType ?? ECoreType.Xray;
         }
 
         #endregion Core Type

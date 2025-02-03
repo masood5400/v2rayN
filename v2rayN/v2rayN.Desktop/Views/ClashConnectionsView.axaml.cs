@@ -1,8 +1,9 @@
+using System.Reactive.Disposables;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.ReactiveUI;
 using Avalonia.Threading;
 using ReactiveUI;
-using System.Reactive.Disposables;
 
 namespace v2rayN.Desktop.Views
 {
@@ -12,6 +13,7 @@ namespace v2rayN.Desktop.Views
         {
             InitializeComponent();
             ViewModel = new ClashConnectionsViewModel(UpdateViewHandler);
+            btnAutofitColumnWidth.Click += BtnAutofitColumnWidth_Click;
 
             this.WhenActivated(disposables =>
             {
@@ -22,7 +24,6 @@ namespace v2rayN.Desktop.Views
                 this.BindCommand(ViewModel, vm => vm.ConnectionCloseAllCmd, v => v.menuConnectionCloseAll).DisposeWith(disposables);
 
                 this.Bind(ViewModel, vm => vm.HostFilter, v => v.txtHostFilter.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SortingSelected, v => v.cmbSorting.SelectedIndex).DisposeWith(disposables);
                 this.BindCommand(ViewModel, vm => vm.ConnectionCloseAllCmd, v => v.btnConnectionCloseAll).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.AutoRefresh, v => v.togAutoRefresh.IsChecked).DisposeWith(disposables);
             });
@@ -33,7 +34,8 @@ namespace v2rayN.Desktop.Views
             switch (action)
             {
                 case EViewAction.DispatcherRefreshConnections:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     Dispatcher.UIThread.Post(() =>
                         ViewModel?.RefreshConnections((List<ConnectionItem>?)obj),
                      DispatcherPriority.Default);
@@ -41,6 +43,19 @@ namespace v2rayN.Desktop.Views
             }
 
             return await Task.FromResult(true);
+        }
+
+        private void BtnAutofitColumnWidth_Click(object? sender, RoutedEventArgs e)
+        {
+            AutofitColumnWidth();
+        }
+
+        private void AutofitColumnWidth()
+        {
+            foreach (var it in lstConnections.Columns)
+            {
+                it.Width = new DataGridLength(1, DataGridLengthUnitType.Auto);
+            }
         }
 
         private void btnClose_Click(object? sender, RoutedEventArgs e)

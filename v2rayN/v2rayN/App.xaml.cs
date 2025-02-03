@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -14,7 +14,6 @@ namespace v2rayN
 
         public App()
         {
-            // Locator.CurrentMutable.RegisterViewsForViewModels(Assembly.GetCallingAssembly());
             this.DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
@@ -26,9 +25,9 @@ namespace v2rayN
         /// <param name="e"></param>
         protected override void OnStartup(StartupEventArgs e)
         {
-            var exePathKey = Utils.GetMD5(Utils.GetExePath());
+            var exePathKey = Utils.GetMd5(Utils.GetExePath());
 
-            var rebootas = (e.Args ?? new string[] { }).Any(t => t == Global.RebootAs);
+            var rebootas = (e.Args ?? Array.Empty<string>()).Any(t => t == Global.RebootAs);
             ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out bool bCreatedNew);
             if (!rebootas && !bCreatedNew)
             {

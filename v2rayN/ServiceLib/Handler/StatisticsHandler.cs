@@ -8,128 +8,156 @@
         private Config _config;
         private ServerStatItem? _serverStatItem;
         private List<ServerStatItem> _lstServerStat;
-        private Action<ServerSpeedItem> _updateFunc;
-        private StatisticsV2rayService? _statisticsV2Ray;
-        private StatisticsSingboxService? _statisticsSingbox;
+        private Action<ServerSpeedItem>? _updateFunc;
 
+        private StatisticsXrayService? _statisticsXray;
+        private StatisticsSingboxService? _statisticsSingbox;
+        private static readonly string _tag = "StatisticsHandler";
         public List<ServerStatItem> ServerStat => _lstServerStat;
 
-        public void Init(Config config, Action<ServerSpeedItem> update)
+        public async Task Init(Config config, Action<ServerSpeedItem> updateFunc)
         {
             _config = config;
-            _updateFunc = update;
-            if (!config.guiItem.enableStatistics)
+            _updateFunc = updateFunc;
+            if (config.GuiItem.EnableStatistics || _config.GuiItem.DisplayRealTimeSpeed)
             {
-                return;
+                await InitData();
+
+                _statisticsXray = new StatisticsXrayService(config, UpdateServerStatHandler);
+                _statisticsSingbox = new StatisticsSingboxService(config, UpdateServerStatHandler);
             }
-
-            InitData();
-
-            _statisticsV2Ray = new StatisticsV2rayService(config, UpdateServerStat);
-            _statisticsSingbox = new StatisticsSingboxService(config, UpdateServerStat);
         }
 
         public void Close()
         {
             try
             {
-                _statisticsV2Ray?.Close();
+                _statisticsXray?.Close();
                 _statisticsSingbox?.Close();
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 
-        public void ClearAllServerStatistics()
+        public async Task ClearAllServerStatistics()
         {
-            SQLiteHelper.Instance.Execute($"delete from ServerStatItem ");
+            await SQLiteHelper.Instance.ExecuteAsync($"delete from ServerStatItem ");
             _serverStatItem = null;
             _lstServerStat = new();
         }
 
-        public void SaveTo()
+        public async Task SaveTo()
         {
             try
             {
                 if (_lstServerStat != null)
                 {
-                    SQLiteHelper.Instance.UpdateAll(_lstServerStat);
+                    await SQLiteHelper.Instance.UpdateAllAsync(_lstServerStat);
                 }
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 
-        private void InitData()
+        public async Task CloneServerStatItem(string indexId, string toIndexId)
         {
-            SQLiteHelper.Instance.Execute($"delete from ServerStatItem where indexId not in ( select indexId from ProfileItem )");
+            if (_lstServerStat == null)
+            {
+                return;
+            }
 
-            long ticks = DateTime.Now.Date.Ticks;
-            SQLiteHelper.Instance.Execute($"update ServerStatItem set todayUp = 0,todayDown=0,dateNow={ticks} where dateNow<>{ticks}");
+            if (indexId == toIndexId)
+            {
+                return;
+            }
 
-            _lstServerStat = SQLiteHelper.Instance.Table<ServerStatItem>().ToList();
+            var stat = _lstServerStat.FirstOrDefault(t => t.IndexId == indexId);
+            if (stat == null)
+            {
+                return;
+            }
+
+            var toStat = JsonUtils.DeepCopy(stat);
+            toStat.IndexId = toIndexId;
+            await SQLiteHelper.Instance.ReplaceAsync(toStat);
+            _lstServerStat.Add(toStat);
         }
 
-        private void UpdateServerStat(ServerSpeedItem server)
+        private async Task InitData()
         {
-            GetServerStatItem(_config.indexId);
+            await SQLiteHelper.Instance.ExecuteAsync($"delete from ServerStatItem where indexId not in ( select indexId from ProfileItem )");
+
+            long ticks = DateTime.Now.Date.Ticks;
+            await SQLiteHelper.Instance.ExecuteAsync($"update ServerStatItem set todayUp = 0,todayDown=0,dateNow={ticks} where dateNow<>{ticks}");
+
+            _lstServerStat = await SQLiteHelper.Instance.TableAsync<ServerStatItem>().ToListAsync();
+        }
+
+        private void UpdateServerStatHandler(ServerSpeedItem server)
+        {
+            _ = UpdateServerStat(server);
+        }
+
+        private async Task UpdateServerStat(ServerSpeedItem server)
+        {
+            await GetServerStatItem(_config.IndexId);
 
             if (_serverStatItem is null)
             {
                 return;
             }
-            if (server.proxyUp != 0 || server.proxyDown != 0)
+            if (server.ProxyUp != 0 || server.ProxyDown != 0)
             {
-                _serverStatItem.todayUp += server.proxyUp;
-                _serverStatItem.todayDown += server.proxyDown;
-                _serverStatItem.totalUp += server.proxyUp;
-                _serverStatItem.totalDown += server.proxyDown;
+                _serverStatItem.TodayUp += server.ProxyUp;
+                _serverStatItem.TodayDown += server.ProxyDown;
+                _serverStatItem.TotalUp += server.ProxyUp;
+                _serverStatItem.TotalDown += server.ProxyDown;
             }
 
-            server.indexId = _config.indexId;
-            server.todayUp = _serverStatItem.todayUp;
-            server.todayDown = _serverStatItem.todayDown;
-            server.totalUp = _serverStatItem.totalUp;
-            server.totalDown = _serverStatItem.totalDown;
-            _updateFunc(server);
+            server.IndexId = _config.IndexId;
+            server.TodayUp = _serverStatItem.TodayUp;
+            server.TodayDown = _serverStatItem.TodayDown;
+            server.TotalUp = _serverStatItem.TotalUp;
+            server.TotalDown = _serverStatItem.TotalDown;
+            _updateFunc?.Invoke(server);
         }
 
-        private void GetServerStatItem(string indexId)
+        private async Task GetServerStatItem(string indexId)
         {
             long ticks = DateTime.Now.Date.Ticks;
-            if (_serverStatItem != null && _serverStatItem.indexId != indexId)
+            if (_serverStatItem != null && _serverStatItem.IndexId != indexId)
             {
                 _serverStatItem = null;
             }
 
             if (_serverStatItem == null)
             {
-                _serverStatItem = _lstServerStat.FirstOrDefault(t => t.indexId == indexId);
+                _serverStatItem = _lstServerStat.FirstOrDefault(t => t.IndexId == indexId);
                 if (_serverStatItem == null)
                 {
                     _serverStatItem = new ServerStatItem
                     {
-                        indexId = indexId,
-                        totalUp = 0,
-                        totalDown = 0,
-                        todayUp = 0,
-                        todayDown = 0,
-                        dateNow = ticks
+                        IndexId = indexId,
+                        TotalUp = 0,
+                        TotalDown = 0,
+                        TodayUp = 0,
+                        TodayDown = 0,
+                        DateNow = ticks
                     };
-                    SQLiteHelper.Instance.Replace(_serverStatItem);
+                    await SQLiteHelper.Instance.ReplaceAsync(_serverStatItem);
                     _lstServerStat.Add(_serverStatItem);
                 }
             }
 
-            if (_serverStatItem.dateNow != ticks)
+            if (_serverStatItem.DateNow != ticks)
             {
-                _serverStatItem.todayUp = 0;
-                _serverStatItem.todayDown = 0;
-                _serverStatItem.dateNow = ticks;
+                _serverStatItem.TodayUp = 0;
+                _serverStatItem.TodayDown = 0;
+                _serverStatItem.DateNow = ticks;
             }
         }
     }

@@ -1,7 +1,7 @@
-﻿using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 
 namespace ServiceLib.ViewModels
 {
@@ -9,7 +9,6 @@ namespace ServiceLib.ViewModels
     {
         private ConcurrentQueue<string> _queueMsg = new();
         private int _numMaxMsg = 500;
-        private string _lastMsgFilter = string.Empty;
         private bool _lastMsgFilterNotAvailable;
         private bool _blLockShow = false;
 
@@ -23,20 +22,24 @@ namespace ServiceLib.ViewModels
         {
             _config = AppHandler.Instance.Config;
             _updateView = updateView;
-
-            MessageBus.Current.Listen<string>(Global.CommandSendMsgView).Subscribe(async x => await AppendQueueMsg(x));
-
-            MsgFilter = _config.msgUIItem.mainMsgFilter ?? string.Empty;
-            AutoRefresh = _config.msgUIItem.autoRefresh ?? true;
+            MsgFilter = _config.MsgUIItem.MainMsgFilter ?? string.Empty;
+            AutoRefresh = _config.MsgUIItem.AutoRefresh ?? true;
 
             this.WhenAnyValue(
                x => x.MsgFilter)
-                   .Subscribe(c => _config.msgUIItem.mainMsgFilter = MsgFilter);
+                   .Subscribe(c => DoMsgFilter());
 
             this.WhenAnyValue(
               x => x.AutoRefresh,
               y => y == true)
-                  .Subscribe(c => { _config.msgUIItem.autoRefresh = AutoRefresh; });
+                  .Subscribe(c => { _config.MsgUIItem.AutoRefresh = AutoRefresh; });
+
+            MessageBus.Current.Listen<string>(EMsgCommand.SendMsgView.ToString()).Subscribe(OnNext);
+        }
+
+        private async void OnNext(string x)
+        {
+            await AppendQueueMsg(x);
         }
 
         private async Task AppendQueueMsg(string msg)
@@ -56,14 +59,14 @@ namespace ServiceLib.ViewModels
             {
                 return;
             }
-
-            _blLockShow = true;
-            if (!_config.uiItem.showInTaskbar)
+            if (!_config.UiItem.ShowInTaskbar)
             {
-                await Task.Delay(1000);
+                return;
             }
 
-            await Task.Delay(100);
+            _blLockShow = true;
+
+            await Task.Delay(500);
             var txt = string.Join("", _queueMsg.ToArray());
             await _updateView?.Invoke(EViewAction.DispatcherShowMsg, txt);
 
@@ -73,8 +76,7 @@ namespace ServiceLib.ViewModels
         private async Task EnqueueQueueMsg(string msg)
         {
             //filter msg
-            if (MsgFilter != _lastMsgFilter) _lastMsgFilterNotAvailable = false;
-            if (Utils.IsNotEmpty(MsgFilter) && !_lastMsgFilterNotAvailable)
+            if (MsgFilter.IsNotEmpty() && !_lastMsgFilterNotAvailable)
             {
                 try
                 {
@@ -83,12 +85,12 @@ namespace ServiceLib.ViewModels
                         return;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    _queueMsg.Enqueue(ex.Message);
                     _lastMsgFilterNotAvailable = true;
                 }
             }
-            _lastMsgFilter = MsgFilter;
 
             //Enqueue
             if (_queueMsg.Count > _numMaxMsg)
@@ -103,11 +105,18 @@ namespace ServiceLib.ViewModels
             {
                 _queueMsg.Enqueue(Environment.NewLine);
             }
+            await Task.CompletedTask;
         }
 
         public void ClearMsg()
         {
             _queueMsg.Clear();
+        }
+
+        private void DoMsgFilter()
+        {
+            _config.MsgUIItem.MainMsgFilter = MsgFilter;
+            _lastMsgFilterNotAvailable = false;
         }
     }
 }

@@ -1,10 +1,10 @@
-﻿using Avalonia.Controls;
+using System.Reactive.Disposables;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.ReactiveUI;
 using MsBox.Avalonia.Enums;
 using ReactiveUI;
-using System.Reactive.Disposables;
 using v2rayN.Desktop.Common;
 
 namespace v2rayN.Desktop.Views
@@ -75,7 +75,8 @@ namespace v2rayN.Desktop.Views
                     break;
 
                 case EViewAction.RoutingRuleSettingWindow:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return await new RoutingRuleSettingWindow((RoutingItem)obj).ShowDialog<bool>(this);
             }
             return await Task.FromResult(true);
@@ -83,12 +84,7 @@ namespace v2rayN.Desktop.Views
 
         private void RoutingSettingWindow_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (ViewModel?.enableRoutingBasic ?? false)
-            {
-                return;
-            }
-
-            if (e.KeyModifiers == KeyModifiers.Control)
+            if (e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta)
             {
                 if (e.Key == Key.A)
                 {
@@ -112,12 +108,7 @@ namespace v2rayN.Desktop.Views
 
         private void lstRoutings_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            List<RoutingItemModel> lst = [];
-            foreach (var item in lstRoutings.SelectedItems)
-            {
-                lst.Add((RoutingItemModel)item);
-            }
-            ViewModel.SelectedSources = lst;
+            ViewModel.SelectedSources = lstRoutings.SelectedItems.Cast<RoutingItemModel>().ToList();
         }
 
         private void LstRoutings_DoubleTapped(object? sender, TappedEventArgs e)
@@ -127,12 +118,12 @@ namespace v2rayN.Desktop.Views
 
         private void linkdomainStrategy_Click(object? sender, RoutedEventArgs e)
         {
-            Utils.ProcessStart("https://xtls.github.io/config/routing.html");
+            ProcUtils.ProcessStart("https://xtls.github.io/config/routing.html");
         }
 
         private void linkdomainStrategy4Singbox_Click(object? sender, RoutedEventArgs e)
         {
-            Utils.ProcessStart("https://sing-box.sagernet.org/zh/configuration/shared/listen/#domain_strategy");
+            ProcUtils.ProcessStart("https://sing-box.sagernet.org/zh/configuration/shared/listen/#domain_strategy");
         }
 
         private void btnCancel_Click(object? sender, RoutedEventArgs e)

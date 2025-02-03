@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text;
 
 namespace ServiceLib.Handler
@@ -13,282 +13,219 @@ namespace ServiceLib.Handler
         private Config _config;
         private Process? _process;
         private Process? _processPre;
-        private Action<bool, string> _updateFunc;
+        private int _linuxSudoPid = -1;
+        private Action<bool, string>? _updateFunc;
+        private const string _tag = "CoreHandler";
 
-        public void Init(Config config, Action<bool, string> update)
+        public async Task Init(Config config, Action<bool, string> updateFunc)
         {
             _config = config;
-            _updateFunc = update;
+            _updateFunc = updateFunc;
 
-            Environment.SetEnvironmentVariable("v2ray.location.asset", Utils.GetBinPath(""), EnvironmentVariableTarget.Process);
-            Environment.SetEnvironmentVariable("xray.location.asset", Utils.GetBinPath(""), EnvironmentVariableTarget.Process);
-        }
+            Environment.SetEnvironmentVariable(Global.V2RayLocalAsset, Utils.GetBinPath(""), EnvironmentVariableTarget.Process);
+            Environment.SetEnvironmentVariable(Global.XrayLocalAsset, Utils.GetBinPath(""), EnvironmentVariableTarget.Process);
 
-        public void LoadCore(ProfileItem? node)
-        {
-            if (node == null)
+            //Copy the bin folder to the storage location (for init)
+            if (Environment.GetEnvironmentVariable(Global.LocalAppData) == "1")
             {
-                ShowMsg(false, ResUI.CheckServerSettings);
-                return;
-            }
-
-            string fileName = Utils.GetConfigPath(Global.CoreConfigFileName);
-            if (CoreConfigHandler.GenerateClientConfig(node, fileName, out string msg, out string content) != 0)
-            {
-                ShowMsg(false, msg);
-                return;
-            }
-            else
-            {
-                ShowMsg(false, msg);
-                ShowMsg(true, $"{node.GetSummary()}");
-                CoreStop();
-                CoreStart(node);
-
-                //In tun mode, do a delay check and restart the core
-                //if (_config.tunModeItem.enableTun)
-                //{
-                //    Observable.Range(1, 1)
-                //    .Delay(TimeSpan.FromSeconds(15))
-                //    .Subscribe(x =>
-                //    {
-                //        {
-                //            if (_process == null || _process.HasExited)
-                //            {
-                //                CoreStart(node);
-                //                ShowMsg(false, "Tun mode restart the core once");
-                //                Logging.SaveLog("Tun mode restart the core once");
-                //            }
-                //        }
-                //    });
-                //}
-            }
-        }
-
-        public int LoadCoreConfigSpeedtest(List<ServerTestItem> selecteds)
-        {
-            int pid = -1;
-            var coreType = selecteds.Exists(t => t.configType == EConfigType.Hysteria2 || t.configType == EConfigType.TUIC || t.configType == EConfigType.WireGuard) ? ECoreType.sing_box : ECoreType.Xray;
-            string configPath = Utils.GetConfigPath(Global.CoreSpeedtestConfigFileName);
-            if (CoreConfigHandler.GenerateClientSpeedtestConfig(_config, configPath, selecteds, coreType, out string msg) != 0)
-            {
-                ShowMsg(false, msg);
-            }
-            else
-            {
-                ShowMsg(false, msg);
-                pid = CoreStartSpeedtest(configPath, coreType);
-            }
-            return pid;
-        }
-
-        public void CoreStop()
-        {
-            try
-            {
-                bool hasProc = false;
-                if (_process != null)
+                var fromPath = Utils.GetBaseDirectory("bin");
+                var toPath = Utils.GetBinPath("");
+                if (fromPath != toPath)
                 {
-                    KillProcess(_process);
-                    _process.Dispose();
-                    _process = null;
-                    hasProc = true;
+                    FileManager.CopyDirectory(fromPath, toPath, true, false);
                 }
+            }
 
-                if (_processPre != null)
+            if (Utils.IsNonWindows())
+            {
+                var coreInfo = CoreInfoHandler.Instance.GetCoreInfo();
+                foreach (var it in coreInfo)
                 {
-                    KillProcess(_processPre);
-                    _processPre.Dispose();
-                    _processPre = null;
-                    hasProc = true;
-                }
-
-                if (!hasProc)
-                {
-                    var coreInfo = CoreInfoHandler.Instance.GetCoreInfo();
-                    foreach (var it in coreInfo)
+                    if (it.CoreType == ECoreType.v2rayN)
                     {
-                        if (it.coreType == ECoreType.v2rayN)
+                        if (Utils.UpgradeAppExists(out var upgradeFileName))
                         {
-                            continue;
+                            await Utils.SetLinuxChmod(upgradeFileName);
                         }
-                        foreach (string vName in it.coreExes)
+                        continue;
+                    }
+
+                    foreach (var name in it.CoreExes)
+                    {
+                        var exe = Utils.GetBinPath(Utils.GetExeName(name), it.CoreType.ToString());
+                        if (File.Exists(exe))
                         {
-                            var existing = Process.GetProcessesByName(vName);
-                            foreach (Process p in existing)
-                            {
-                                string? path = p.MainModule?.FileName;
-                                if (path == Utils.GetExeName(Utils.GetBinPath(vName, it.coreType.ToString())))
-                                {
-                                    KillProcess(p);
-                                }
-                            }
+                            await Utils.SetLinuxChmod(exe);
                         }
                     }
                 }
             }
-            catch (Exception ex)
+        }
+
+        public async Task LoadCore(ProfileItem? node)
+        {
+            if (node == null)
             {
-                Logging.SaveLog(ex.Message, ex);
+                UpdateFunc(false, ResUI.CheckServerSettings);
+                return;
+            }
+
+            var fileName = Utils.GetConfigPath(Global.CoreConfigFileName);
+            var result = await CoreConfigHandler.GenerateClientConfig(node, fileName);
+            if (result.Success != true)
+            {
+                UpdateFunc(true, result.Msg);
+                return;
+            }
+
+            UpdateFunc(false, $"{node.GetSummary()}");
+            UpdateFunc(false, $"{Utils.GetRuntimeInfo()}");
+            UpdateFunc(false, string.Format(ResUI.StartService, DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")));
+            await CoreStop();
+            await Task.Delay(100);
+
+            if (Utils.IsWindows() && _config.TunModeItem.EnableTun)
+            {
+                await Task.Delay(100);
+                await WindowsUtils.RemoveTunDevice();
+            }
+
+            await CoreStart(node);
+            await CoreStartPreService(node);
+            if (_process != null)
+            {
+                UpdateFunc(true, $"{node.GetSummary()}");
             }
         }
 
-        public void CoreStopPid(int pid)
+        public async Task<int> LoadCoreConfigSpeedtest(List<ServerTestItem> selecteds)
+        {
+            var coreType = selecteds.Exists(t => t.ConfigType is EConfigType.Hysteria2 or EConfigType.TUIC or EConfigType.WireGuard) ? ECoreType.sing_box : ECoreType.Xray;
+            var configPath = Utils.GetConfigPath(Global.CoreSpeedtestConfigFileName);
+            var result = await CoreConfigHandler.GenerateClientSpeedtestConfig(_config, configPath, selecteds, coreType);
+            UpdateFunc(false, result.Msg);
+            if (result.Success != true)
+            {
+                return -1;
+            }
+
+            UpdateFunc(false, string.Format(ResUI.StartService, DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")));
+            UpdateFunc(false, configPath);
+
+            var coreInfo = CoreInfoHandler.Instance.GetCoreInfo(coreType);
+            var proc = await RunProcess(coreInfo, Global.CoreSpeedtestConfigFileName, true, false);
+            if (proc is null)
+            {
+                return -1;
+            }
+
+            return proc.Id;
+        }
+
+        public async Task CoreStop()
         {
             try
             {
-                var _p = Process.GetProcessById(pid);
-                KillProcess(_p);
+                if (_process != null)
+                {
+                    await ProcUtils.ProcessKill(_process, true);
+                    _process = null;
+                }
+
+                if (_processPre != null)
+                {
+                    await ProcUtils.ProcessKill(_processPre, true);
+                    _processPre = null;
+                }
+
+                if (_linuxSudoPid > 0)
+                {
+                    await KillProcessAsLinuxSudo();
+                }
+                _linuxSudoPid = -1;
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
+                Logging.SaveLog(_tag, ex);
             }
         }
 
         #region Private
 
-        private string CoreFindExe(CoreInfo coreInfo)
+        private async Task CoreStart(ProfileItem node)
         {
-            string fileName = string.Empty;
-            foreach (string name in coreInfo.coreExes)
-            {
-                string vName = Utils.GetExeName(name);
-                vName = Utils.GetBinPath(vName, coreInfo.coreType.ToString());
-                if (File.Exists(vName))
-                {
-                    fileName = vName;
-                    break;
-                }
-            }
-            if (Utils.IsNullOrEmpty(fileName))
-            {
-                string msg = string.Format(ResUI.NotFoundCore, Utils.GetBinPath("", coreInfo.coreType.ToString()), string.Join(", ", coreInfo.coreExes.ToArray()), coreInfo.coreUrl);
-                Logging.SaveLog(msg);
-                ShowMsg(false, msg);
-            }
-            return fileName;
-        }
-
-        private void CoreStart(ProfileItem node)
-        {
-            ShowMsg(false, $"{Environment.OSVersion} - {(Environment.Is64BitOperatingSystem ? 64 : 32)}");
-            ShowMsg(false, string.Format(ResUI.StartService, DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")));
-
-            //ECoreType coreType;
-            //if (node.configType != EConfigType.Custom && _config.tunModeItem.enableTun)
-            //{
-            //    coreType = ECoreType.sing_box;
-            //}
-            //else
-            //{
-            //    coreType = LazyConfig.Instance.GetCoreType(node, node.configType);
-            //}
-            var coreType = AppHandler.Instance.GetCoreType(node, node.configType);
-            _config.runningCoreType = coreType;
+            var coreType = _config.RunningCoreType = AppHandler.Instance.GetCoreType(node, node.ConfigType);
             var coreInfo = CoreInfoHandler.Instance.GetCoreInfo(coreType);
 
-            var displayLog = node.configType != EConfigType.Custom || node.displayLog;
-            var proc = RunProcess(node, coreInfo, "", displayLog);
+            var displayLog = node.ConfigType != EConfigType.Custom || node.DisplayLog;
+            var proc = await RunProcess(coreInfo, Global.CoreConfigFileName, displayLog, true);
             if (proc is null)
             {
                 return;
             }
             _process = proc;
+        }
 
-            //start a pre service
+        private async Task CoreStartPreService(ProfileItem node)
+        {
             if (_process != null && !_process.HasExited)
             {
-                ProfileItem? itemSocks = null;
-                var preCoreType = ECoreType.sing_box;
-                if (node.configType != EConfigType.Custom && coreType != ECoreType.sing_box && _config.tunModeItem.enableTun)
-                {
-                    itemSocks = new ProfileItem()
-                    {
-                        coreType = preCoreType,
-                        configType = EConfigType.SOCKS,
-                        address = Global.Loopback,
-                        sni = node.address, //Tun2SocksAddress
-                        port = AppHandler.Instance.GetLocalPort(EInboundProtocol.socks)
-                    };
-                }
-                else if ((node.configType == EConfigType.Custom && node.preSocksPort > 0))
-                {
-                    preCoreType = _config.tunModeItem.enableTun ? ECoreType.sing_box : ECoreType.Xray;
-                    itemSocks = new ProfileItem()
-                    {
-                        coreType = preCoreType,
-                        configType = EConfigType.SOCKS,
-                        address = Global.Loopback,
-                        port = node.preSocksPort.Value,
-                    };
-                    _config.runningCoreType = preCoreType;
-                }
+                var coreType = AppHandler.Instance.GetCoreType(node, node.ConfigType);
+                var itemSocks = await ConfigHandler.GetPreSocksItem(_config, node, coreType);
                 if (itemSocks != null)
                 {
-                    string fileName2 = Utils.GetConfigPath(Global.CorePreConfigFileName);
-                    if (CoreConfigHandler.GenerateClientConfig(itemSocks, fileName2, out string msg2, out string configStr) == 0)
+                    var preCoreType = itemSocks.CoreType ?? ECoreType.sing_box;
+                    var fileName = Utils.GetConfigPath(Global.CorePreConfigFileName);
+                    var result = await CoreConfigHandler.GenerateClientConfig(itemSocks, fileName);
+                    if (result.Success)
                     {
-                        var coreInfo2 = CoreInfoHandler.Instance.GetCoreInfo(preCoreType);
-                        var proc2 = RunProcess(node, coreInfo2, $" -c {Global.CorePreConfigFileName}", true);
-                        if (proc2 is not null)
+                        var coreInfo = CoreInfoHandler.Instance.GetCoreInfo(preCoreType);
+                        var proc = await RunProcess(coreInfo, Global.CorePreConfigFileName, true, true);
+                        if (proc is null)
                         {
-                            _processPre = proc2;
+                            return;
                         }
+                        _processPre = proc;
                     }
                 }
             }
         }
 
-        private int CoreStartSpeedtest(string configPath, ECoreType coreType)
+        private void UpdateFunc(bool notify, string msg)
         {
-            ShowMsg(false, string.Format(ResUI.StartService, DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")));
-
-            ShowMsg(false, configPath);
-            try
-            {
-                var coreInfo = CoreInfoHandler.Instance.GetCoreInfo(coreType);
-                var proc = RunProcess(new(), coreInfo, $" -c {Global.CoreSpeedtestConfigFileName}", true);
-                if (proc is null)
-                {
-                    return -1;
-                }
-
-                return proc.Id;
-            }
-            catch (Exception ex)
-            {
-                Logging.SaveLog(ex.Message, ex);
-                string msg = ex.Message;
-                ShowMsg(false, msg);
-                return -1;
-            }
+            _updateFunc?.Invoke(notify, msg);
         }
 
-        private void ShowMsg(bool notify, string msg)
+        private bool IsNeedSudo(ECoreType eCoreType)
         {
-            _updateFunc(notify, msg);
+            return _config.TunModeItem.EnableTun
+                   && eCoreType == ECoreType.sing_box
+                   && (Utils.IsNonWindows())
+                //&& _config.TunModeItem.LinuxSudoPwd.IsNotEmpty()
+                ;
         }
 
         #endregion Private
 
         #region Process
 
-        private Process? RunProcess(ProfileItem node, CoreInfo coreInfo, string configPath, bool displayLog)
+        private async Task<Process?> RunProcess(CoreInfo? coreInfo, string configPath, bool displayLog, bool mayNeedSudo)
         {
+            var fileName = CoreInfoHandler.Instance.GetCoreExecFile(coreInfo, out var msg);
+            if (Utils.IsNullOrEmpty(fileName))
+            {
+                UpdateFunc(false, msg);
+                return null;
+            }
+
             try
             {
-                string fileName = CoreFindExe(coreInfo);
-                if (Utils.IsNullOrEmpty(fileName))
-                {
-                    return null;
-                }
                 Process proc = new()
                 {
                     StartInfo = new()
                     {
                         FileName = fileName,
-                        Arguments = string.Format(coreInfo.arguments, configPath),
+                        Arguments = string.Format(coreInfo.Arguments, configPath),
                         WorkingDirectory = Utils.GetConfigPath(),
                         UseShellExecute = false,
                         RedirectStandardOutput = displayLog,
@@ -298,83 +235,147 @@ namespace ServiceLib.Handler
                         StandardErrorEncoding = displayLog ? Encoding.UTF8 : null,
                     }
                 };
-                var startUpErrorMessage = new StringBuilder();
-                var startUpSuccessful = false;
+
+                var isNeedSudo = mayNeedSudo && IsNeedSudo(coreInfo.CoreType);
+                if (isNeedSudo)
+                {
+                    await RunProcessAsLinuxSudo(proc, fileName, coreInfo, configPath);
+                }
+
                 if (displayLog)
                 {
                     proc.OutputDataReceived += (sender, e) =>
                     {
-                        if (Utils.IsNotEmpty(e.Data))
-                        {
-                            string msg = e.Data + Environment.NewLine;
-                            ShowMsg(false, msg);
-                        }
+                        if (Utils.IsNullOrEmpty(e.Data))
+                            return;
+                        UpdateFunc(false, e.Data + Environment.NewLine);
                     };
                     proc.ErrorDataReceived += (sender, e) =>
                     {
-                        if (Utils.IsNotEmpty(e.Data))
-                        {
-                            string msg = e.Data + Environment.NewLine;
-                            ShowMsg(false, msg);
-
-                            if (!startUpSuccessful)
-                            {
-                                startUpErrorMessage.Append(msg);
-                            }
-                        }
+                        if (Utils.IsNullOrEmpty(e.Data))
+                            return;
+                        UpdateFunc(false, e.Data + Environment.NewLine);
                     };
                 }
                 proc.Start();
+
+                if (isNeedSudo && _config.TunModeItem.LinuxSudoPwd.IsNotEmpty())
+                {
+                    var pwd = DesUtils.Decrypt(_config.TunModeItem.LinuxSudoPwd);
+                    await Task.Delay(10);
+                    await proc.StandardInput.WriteLineAsync(pwd);
+                    await Task.Delay(10);
+                    await proc.StandardInput.WriteLineAsync(pwd);
+                }
+                if (isNeedSudo)
+                    _linuxSudoPid = proc.Id;
+
                 if (displayLog)
                 {
                     proc.BeginOutputReadLine();
                     proc.BeginErrorReadLine();
                 }
 
-                if (proc.WaitForExit(1000))
-                {
-                    proc.CancelErrorRead();
-                    throw new Exception(displayLog ? startUpErrorMessage.ToString() : "启动进程失败并退出 (Failed to start the process and exited)");
-                }
-                else
-                {
-                    startUpSuccessful = true;
-                }
-
+                await Task.Delay(500);
                 AppHandler.Instance.AddProcess(proc.Handle);
+                if (proc is null or { HasExited: true })
+                {
+                    throw new Exception(ResUI.FailedToRunCore);
+                }
                 return proc;
             }
             catch (Exception ex)
             {
-                Logging.SaveLog(ex.Message, ex);
-                string msg = ex.Message;
-                ShowMsg(true, msg);
+                Logging.SaveLog(_tag, ex);
+                UpdateFunc(true, ex.Message);
                 return null;
             }
         }
 
-        private void KillProcess(Process? proc)
+        #endregion Process
+
+        #region Linux
+
+        private async Task RunProcessAsLinuxSudo(Process proc, string fileName, CoreInfo coreInfo, string configPath)
         {
-            if (proc is null)
+            var cmdLine = $"{fileName.AppendQuotes()} {string.Format(coreInfo.Arguments, Utils.GetConfigPath(configPath).AppendQuotes())}";
+
+            var shFilePath = await CreateLinuxShellFile(cmdLine, "run_as_sudo.sh");
+            proc.StartInfo.FileName = shFilePath;
+            proc.StartInfo.Arguments = "";
+            proc.StartInfo.WorkingDirectory = "";
+            if (_config.TunModeItem.LinuxSudoPwd.IsNotEmpty())
             {
-                return;
-            }
-            try
-            {
-                proc.Kill();
-                proc.WaitForExit(100);
-                if (!proc.HasExited)
-                {
-                    proc.Kill();
-                    proc.WaitForExit(100);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logging.SaveLog(ex.Message, ex);
+                proc.StartInfo.StandardInputEncoding = Encoding.UTF8;
+                proc.StartInfo.RedirectStandardInput = true;
             }
         }
 
-        #endregion Process
+        private async Task KillProcessAsLinuxSudo()
+        {
+            var cmdLine = $"kill {_linuxSudoPid}";
+            var shFilePath = await CreateLinuxShellFile(cmdLine, "kill_as_sudo.sh");
+            Process proc = new()
+            {
+                StartInfo = new()
+                {
+                    FileName = shFilePath,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardInputEncoding = Encoding.UTF8,
+                    RedirectStandardInput = true
+                }
+            };
+            proc.Start();
+
+            if (_config.TunModeItem.LinuxSudoPwd.IsNotEmpty())
+            {
+                try
+                {
+                    var pwd = DesUtils.Decrypt(_config.TunModeItem.LinuxSudoPwd);
+                    await Task.Delay(10);
+                    await proc.StandardInput.WriteLineAsync(pwd);
+                    await Task.Delay(10);
+                    await proc.StandardInput.WriteLineAsync(pwd);
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+            }
+
+            var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await proc.WaitForExitAsync(timeout.Token);
+            await Task.Delay(3000);
+        }
+
+        private async Task<string> CreateLinuxShellFile(string cmdLine, string fileName)
+        {
+            //Shell scripts
+            var shFilePath = Utils.GetBinPath(AppHandler.Instance.IsAdministrator ? "root_" + fileName : fileName);
+            File.Delete(shFilePath);
+            var sb = new StringBuilder();
+            sb.AppendLine("#!/bin/sh");
+            if (AppHandler.Instance.IsAdministrator)
+            {
+                sb.AppendLine($"{cmdLine}");
+            }
+            else if (_config.TunModeItem.LinuxSudoPwd.IsNullOrEmpty())
+            {
+                sb.AppendLine($"pkexec {cmdLine}");
+            }
+            else
+            {
+                sb.AppendLine($"sudo -S {cmdLine}");
+            }
+
+            await File.WriteAllTextAsync(shFilePath, sb.ToString());
+            await Utils.SetLinuxChmod(shFilePath);
+            Logging.SaveLog(shFilePath);
+
+            return shFilePath;
+        }
+
+        #endregion Linux
     }
 }

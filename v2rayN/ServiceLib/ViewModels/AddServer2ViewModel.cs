@@ -1,6 +1,6 @@
+using System.Reactive;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
-using System.Reactive;
 
 namespace ServiceLib.ViewModels
 {
@@ -22,52 +22,44 @@ namespace ServiceLib.ViewModels
             _config = AppHandler.Instance.Config;
             _updateView = updateView;
 
-            if (profileItem.indexId.IsNullOrEmpty())
-            {
-                SelectedSource = profileItem;
-            }
-            else
-            {
-                SelectedSource = JsonUtils.DeepCopy(profileItem);
-            }
-            CoreType = SelectedSource?.coreType?.ToString();
-
             BrowseServerCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                await _updateView?.Invoke(EViewAction.BrowseServer, null);
+                _updateView?.Invoke(EViewAction.BrowseServer, null);
+                await Task.CompletedTask;
+            });
+            EditServerCmd = ReactiveCommand.CreateFromTask(async () =>
+            {
+                await EditServer();
+            });
+            SaveServerCmd = ReactiveCommand.CreateFromTask(async () =>
+            {
+                await SaveServerAsync();
             });
 
-            EditServerCmd = ReactiveCommand.Create(() =>
-            {
-                EditServer();
-            });
-
-            SaveServerCmd = ReactiveCommand.Create(() =>
-            {
-                SaveServerAsync();
-            });
+            SelectedSource = profileItem.IndexId.IsNullOrEmpty() ? profileItem : JsonUtils.DeepCopy(profileItem);
+            CoreType = SelectedSource?.CoreType?.ToString();
         }
 
         private async Task SaveServerAsync()
         {
-            string remarks = SelectedSource.remarks;
+            string remarks = SelectedSource.Remarks;
             if (Utils.IsNullOrEmpty(remarks))
             {
                 NoticeHandler.Instance.Enqueue(ResUI.PleaseFillRemarks);
                 return;
             }
 
-            if (Utils.IsNullOrEmpty(SelectedSource.address))
+            if (Utils.IsNullOrEmpty(SelectedSource.Address))
             {
                 NoticeHandler.Instance.Enqueue(ResUI.FillServerAddressCustom);
                 return;
             }
-            SelectedSource.coreType = CoreType.IsNullOrEmpty() ? null : (ECoreType)Enum.Parse(typeof(ECoreType), CoreType);
+            SelectedSource.CoreType = CoreType.IsNullOrEmpty() ? null : (ECoreType)Enum.Parse(typeof(ECoreType), CoreType);
 
-            if (ConfigHandler.EditCustomServer(_config, SelectedSource) == 0)
+            if (await ConfigHandler.EditCustomServer(_config, SelectedSource) == 0)
             {
                 NoticeHandler.Instance.Enqueue(ResUI.OperationSuccess);
-                await _updateView?.Invoke(EViewAction.CloseWindow, null);
+                _updateView?.Invoke(EViewAction.CloseWindow, null);
             }
             else
             {
@@ -75,20 +67,20 @@ namespace ServiceLib.ViewModels
             }
         }
 
-        public void BrowseServer(string fileName)
+        public async Task BrowseServer(string fileName)
         {
             if (Utils.IsNullOrEmpty(fileName))
             {
                 return;
             }
 
-            var item = AppHandler.Instance.GetProfileItem(SelectedSource.indexId);
+            var item = await AppHandler.Instance.GetProfileItem(SelectedSource.IndexId);
             item ??= SelectedSource;
-            item.address = fileName;
-            if (ConfigHandler.AddCustomServer(_config, item, false) == 0)
+            item.Address = fileName;
+            if (await ConfigHandler.AddCustomServer(_config, item, false) == 0)
             {
                 NoticeHandler.Instance.Enqueue(ResUI.SuccessfullyImportedCustomServer);
-                if (Utils.IsNotEmpty(item.indexId))
+                if (Utils.IsNotEmpty(item.IndexId))
                 {
                     SelectedSource = JsonUtils.DeepCopy(item);
                 }
@@ -100,9 +92,9 @@ namespace ServiceLib.ViewModels
             }
         }
 
-        private void EditServer()
+        private async Task EditServer()
         {
-            var address = SelectedSource.address;
+            var address = SelectedSource.Address;
             if (Utils.IsNullOrEmpty(address))
             {
                 NoticeHandler.Instance.Enqueue(ResUI.FillServerAddressCustom);
@@ -112,12 +104,13 @@ namespace ServiceLib.ViewModels
             address = Utils.GetConfigPath(address);
             if (File.Exists(address))
             {
-                Utils.ProcessStart(address);
+                ProcUtils.ProcessStart(address);
             }
             else
             {
                 NoticeHandler.Instance.Enqueue(ResUI.FailedReadConfiguration);
             }
+            await Task.CompletedTask;
         }
     }
 }

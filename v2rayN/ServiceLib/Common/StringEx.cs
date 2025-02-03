@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ServiceLib.Common
 {
@@ -21,27 +21,22 @@ namespace ServiceLib.Common
 
         public static bool BeginWithAny(this string s, IEnumerable<char> chars)
         {
-            if (s.IsNullOrEmpty()) return false;
-            return chars.Contains(s[0]);
+            if (s.IsNullOrEmpty())
+                return false;
+            return chars.Contains(s.First());
         }
 
-        public static bool IsWhiteSpace(this string value)
+        private static bool IsWhiteSpace(this string value)
         {
-            foreach (char c in value)
-            {
-                if (char.IsWhiteSpace(c)) continue;
-
-                return false;
-            }
-            return true;
+            return value.All(char.IsWhiteSpace);
         }
 
         public static IEnumerable<string> NonWhiteSpaceLines(this TextReader reader)
         {
-            string? line;
-            while ((line = reader.ReadLine()) != null)
+            while (reader.ReadLine() is { } line)
             {
-                if (line.IsWhiteSpace()) continue;
+                if (line.IsWhiteSpace())
+                    continue;
                 yield return line;
             }
         }
@@ -53,26 +48,12 @@ namespace ServiceLib.Common
 
         public static string RemovePrefix(this string value, char prefix)
         {
-            if (value.StartsWith(prefix))
-            {
-                return value.Substring(1);
-            }
-            else
-            {
-                return value;
-            }
+            return value.StartsWith(prefix) ? value[1..] : value;
         }
 
         public static string RemovePrefix(this string value, string prefix)
         {
-            if (value.StartsWith(prefix))
-            {
-                return value.Substring(prefix.Length);
-            }
-            else
-            {
-                return value;
-            }
+            return value.StartsWith(prefix) ? value[prefix.Length..] : value;
         }
 
         public static string UpperFirstChar(this string value)
@@ -82,17 +63,12 @@ namespace ServiceLib.Common
                 return string.Empty;
             }
 
-            return char.ToUpper(value[0]) + value.Substring(1);
+            return char.ToUpper(value.First()) + value[1..];
         }
 
         public static string AppendQuotes(this string value)
         {
-            if (string.IsNullOrEmpty(value))
-            {
-                return string.Empty;
-            }
-
-            return $"\"{value}\"";
+            return string.IsNullOrEmpty(value) ? string.Empty : $"\"{value}\"";
         }
     }
 }

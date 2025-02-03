@@ -7,8 +7,8 @@
     xmlns:resx="clr-namespace:ServiceLib.Resx;assembly=ServiceLib"
     xmlns:vms="clr-namespace:ServiceLib.ViewModels;assembly=ServiceLib"
     Title="{x:Static resx:ResUI.menuRoutingRuleSetting}"
-    Width="960"
-    Height="700"
+    Width="900"
+    Height="600"
     x:DataType="vms:RoutingRuleSettingViewModel"
     ShowInTaskbar="False"
     WindowStartupLocation="CenterScreen"
@@ -35,29 +35,22 @@
                 x:Name="btnSave"
                 Width="100"
                 Content="{x:Static resx:ResUI.TbConfirm}"
-                Cursor="Hand" />
+                Cursor="Hand"
+                IsDefault="True" />
             <Button
                 x:Name="btnCancel"
                 Width="100"
                 Margin="8,0"
                 Content="{x:Static resx:ResUI.TbCancel}"
-                Cursor="Hand" />
+                Cursor="Hand"
+                IsCancel="True" />
         </StackPanel>
 
-        <Grid Classes="Margin8" DockPanel.Dock="Top">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <Grid
+            Classes="Margin8"
+            ColumnDefinitions="Auto,Auto,Auto"
+            DockPanel.Dock="Top"
+            RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
             <TextBlock
                 Grid.Row="0"
                 Grid.Column="0"
@@ -130,6 +123,7 @@
                 Classes="Margin8"
                 TextWrapping="Wrap" />
 
+            <!--
             <TextBlock
                 Grid.Row="3"
                 Grid.Column="0"
@@ -151,6 +145,7 @@
                 Grid.Column="2"
                 Classes="Margin8"
                 Content="{x:Static resx:ResUI.TbBrowse}" />
+            -->
 
             <TextBlock
                 Grid.Row="4"
@@ -208,39 +203,39 @@
                     <DataGrid.Columns>
                         <DataGridCheckBoxColumn
                             Width="60"
-                            Binding="{Binding enabled}"
+                            Binding="{Binding Enabled}"
                             Header="" />
                         <DataGridTextColumn
                             Width="150"
-                            Binding="{Binding remarks}"
+                            Binding="{Binding Remarks}"
                             Header="{x:Static resx:ResUI.LvRemarks}" />
                         <DataGridTextColumn
                             Width="120"
-                            Binding="{Binding outboundTag}"
+                            Binding="{Binding OutboundTag}"
                             Header="outboundTag" />
                         <DataGridTextColumn
                             Width="100"
-                            Binding="{Binding port}"
+                            Binding="{Binding Port}"
                             Header="port" />
                         <DataGridTextColumn
                             Width="100"
-                            Binding="{Binding protocols}"
+                            Binding="{Binding Protocols}"
                             Header="protocol" />
                         <DataGridTextColumn
                             Width="120"
-                            Binding="{Binding inboundTags}"
+                            Binding="{Binding InboundTags}"
                             Header="inboundTag" />
                         <DataGridTextColumn
                             Width="90"
-                            Binding="{Binding network}"
+                            Binding="{Binding Network}"
                             Header="network" />
                         <DataGridTextColumn
-                            Width="200"
-                            Binding="{Binding domains}"
+                            Width="*"
+                            Binding="{Binding Domains}"
                             Header="domain" />
                         <DataGridTextColumn
-                            Width="200"
-                            Binding="{Binding ips}"
+                            Width="*"
+                            Binding="{Binding Ips}"
                             Header="ip" />
                     </DataGrid.Columns>
                 </DataGrid>

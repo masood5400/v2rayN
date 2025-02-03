@@ -1,7 +1,7 @@
-﻿using ReactiveUI;
+using System.Reactive;
+using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using Splat;
-using System.Reactive;
 
 namespace ServiceLib.ViewModels
 {
@@ -29,7 +29,6 @@ namespace ServiceLib.ViewModels
             {
                 await WebDavCheck();
             });
-
             RemoteBackupCmd = ReactiveCommand.CreateFromTask(async () =>
             {
                 await RemoteBackup();
@@ -39,7 +38,7 @@ namespace ServiceLib.ViewModels
                 await RemoteRestore();
             });
 
-            SelectedSource = JsonUtils.DeepCopy(_config.webDavItem);
+            SelectedSource = JsonUtils.DeepCopy(_config.WebDavItem);
         }
 
         private void DisplayOperationMsg(string msg = "")
@@ -50,8 +49,8 @@ namespace ServiceLib.ViewModels
         private async Task WebDavCheck()
         {
             DisplayOperationMsg();
-            _config.webDavItem = SelectedSource;
-            ConfigHandler.SaveConfig(_config);
+            _config.WebDavItem = SelectedSource;
+            await ConfigHandler.SaveConfig(_config);
 
             var result = await WebDavHandler.Instance.CheckConnection();
             if (result)
@@ -85,7 +84,7 @@ namespace ServiceLib.ViewModels
         private async Task RemoteRestore()
         {
             DisplayOperationMsg();
-            var fileName = Utils.GetTempPath(Utils.GetGUID());
+            var fileName = Utils.GetTempPath(Utils.GetGuid());
             var result = await WebDavHandler.Instance.GetRawFile(fileName);
             if (result)
             {
@@ -126,7 +125,7 @@ namespace ServiceLib.ViewModels
             }
             //check
             var lstFiles = FileManager.GetFilesFromZip(fileName);
-            if (lstFiles is null || !lstFiles.Where(t => t.Contains(_guiConfigs)).Any())
+            if (lstFiles is null || !lstFiles.Any(t => t.Contains(_guiConfigs)))
             {
                 DisplayOperationMsg(ResUI.LocalRestoreInvalidZipTips);
                 return;
@@ -137,7 +136,25 @@ namespace ServiceLib.ViewModels
             var result = await CreateZipFileFromDirectory(fileBackup);
             if (result)
             {
-                Locator.Current.GetService<MainWindowViewModel>()?.V2rayUpgrade(fileName);
+                var service = Locator.Current.GetService<MainWindowViewModel>();
+                await service?.MyAppExitAsync(true);
+                await SQLiteHelper.Instance.DisposeDbConnectionAsync();
+
+                var toPath = Utils.GetConfigPath();
+                FileManager.ZipExtractToFile(fileName, toPath, "");
+
+                if (Utils.IsWindows())
+                {
+                    ProcUtils.RebootAsAdmin(false);
+                }
+                else
+                {
+                    if (Utils.UpgradeAppExists(out var upgradeFileName))
+                    {
+                        ProcUtils.ProcessStart(upgradeFileName, Global.RebootAs, Utils.StartupPath());
+                    }
+                }
+                service?.Shutdown(true);
             }
             else
             {
@@ -156,10 +173,10 @@ namespace ServiceLib.ViewModels
             var configDirZipTemp = Utils.GetTempPath($"v2rayN_{DateTime.Now:yyyyMMddHHmmss}");
             var configDirTemp = Path.Combine(configDirZipTemp, _guiConfigs);
 
-            await Task.Run(() => FileManager.CopyDirectory(configDir, configDirTemp, false, "cache.db"));
-            var ret = await Task.Run(() => FileManager.CreateFromDirectory(configDirZipTemp, fileName));
-            await Task.Run(() => Directory.Delete(configDirZipTemp, true));
-            return ret;
+            FileManager.CopyDirectory(configDir, configDirTemp, false, true, "cache.db");
+            var ret = FileManager.CreateFromDirectory(configDirZipTemp, fileName);
+            Directory.Delete(configDirZipTemp, true);
+            return await Task.FromResult(ret);
         }
     }
 }

@@ -1,9 +1,9 @@
-﻿using MaterialDesignThemes.Wpf;
-using ReactiveUI;
 using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Windows;
 using System.Windows.Input;
+using MaterialDesignThemes.Wpf;
+using ReactiveUI;
 
 namespace v2rayN.Views
 {
@@ -31,7 +31,7 @@ namespace v2rayN.Views
                 this.BindCommand(ViewModel, vm => vm.SubEditCmd, v => v.menuSubEdit).DisposeWith(disposables);
                 this.BindCommand(ViewModel, vm => vm.SubShareCmd, v => v.menuSubShare).DisposeWith(disposables);
             });
-            WindowsUtils.SetDarkBorder(this, AppHandler.Instance.Config.uiItem.followSystemTheme ? !WindowsUtils.IsLightTheme() : AppHandler.Instance.Config.uiItem.colorModeDark);
+            WindowsUtils.SetDarkBorder(this, AppHandler.Instance.Config.UiItem.CurrentTheme);
         }
 
         private async Task<bool> UpdateViewHandler(EViewAction action, object? obj)
@@ -50,11 +50,13 @@ namespace v2rayN.Views
                     break;
 
                 case EViewAction.SubEditWindow:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return (new SubEditWindow((SubItem)obj)).ShowDialog() ?? false;
 
                 case EViewAction.ShareSub:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     ShareSub((string)obj);
                     break;
             }

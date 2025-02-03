@@ -1,6 +1,3 @@
-using MaterialDesignThemes.Wpf;
-using ReactiveUI;
-using Splat;
 using System.Reactive.Disposables;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,6 +5,9 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using MaterialDesignThemes.Wpf;
+using ReactiveUI;
+using Splat;
 using v2rayN.Base;
 using Point = System.Windows.Point;
 
@@ -24,7 +24,6 @@ namespace v2rayN.Views
 
             _config = AppHandler.Instance.Config;
 
-            Application.Current.Exit += Current_Exit;
             btnAutofitColumnWidth.Click += BtnAutofitColumnWidth_Click;
             txtServerFilter.PreviewKeyDown += TxtServerFilter_PreviewKeyDown;
             lstProfiles.PreviewKeyDown += LstProfiles_PreviewKeyDown;
@@ -32,7 +31,7 @@ namespace v2rayN.Views
             lstProfiles.LoadingRow += LstProfiles_LoadingRow;
             menuSelectAll.Click += menuSelectAll_Click;
 
-            if (_config.uiItem.enableDragDropSort)
+            if (_config.UiItem.EnableDragDropSort)
             {
                 lstProfiles.AllowDrop = true;
                 lstProfiles.PreviewMouseLeftButtonDown += LstProfiles_PreviewMouseLeftButtonDown;
@@ -90,21 +89,18 @@ namespace v2rayN.Views
 
             RestoreUI();
             ViewModel?.RefreshServers();
+            MessageBus.Current.Listen<string>(EMsgCommand.AppExit.ToString()).Subscribe(StorageUI);
         }
 
         #region Event
-
-        private void Current_Exit(object sender, ExitEventArgs e)
-        {
-            StorageUI();
-        }
 
         private async Task<bool> UpdateViewHandler(EViewAction action, object? obj)
         {
             switch (action)
             {
                 case EViewAction.SetClipboardData:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     WindowsUtils.SetClipboardData((string)obj);
                     break;
 
@@ -127,7 +123,8 @@ namespace v2rayN.Views
                     break;
 
                 case EViewAction.SaveFileDialog:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     if (UI.SaveFileDialog(out string fileName, "Config|*.json") != true)
                     {
                         return false;
@@ -136,24 +133,29 @@ namespace v2rayN.Views
                     break;
 
                 case EViewAction.AddServerWindow:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return (new AddServerWindow((ProfileItem)obj)).ShowDialog() ?? false;
 
                 case EViewAction.AddServer2Window:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return (new AddServer2Window((ProfileItem)obj)).ShowDialog() ?? false;
 
                 case EViewAction.ShareServer:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     ShareServer((string)obj);
                     break;
 
                 case EViewAction.SubEditWindow:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return (new SubEditWindow((SubItem)obj)).ShowDialog() ?? false;
 
                 case EViewAction.DispatcherSpeedTest:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     Application.Current?.Dispatcher.Invoke((() =>
                     {
                         ViewModel?.SetSpeedTestResult((SpeedTestResult)obj);
@@ -195,7 +197,7 @@ namespace v2rayN.Views
 
         private void LstProfiles_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (_config.uiItem.doubleClick2Activate)
+            if (_config.UiItem.DoubleClick2Activate)
             {
                 ViewModel?.SetDefaultServer();
             }
@@ -321,7 +323,7 @@ namespace v2rayN.Views
 
         private void RestoreUI()
         {
-            var lvColumnItem = _config.uiItem.mainColumnItem.OrderBy(t => t.Index).ToList();
+            var lvColumnItem = _config.UiItem.MainColumnItem.OrderBy(t => t.Index).ToList();
             var displayIndex = 0;
             foreach (var item in lvColumnItem)
             {
@@ -338,19 +340,16 @@ namespace v2rayN.Views
                             item2.Width = item.Width;
                             item2.DisplayIndex = displayIndex++;
                         }
-                        if (item.Name.StartsWith("to"))
+                        if (item.Name.ToLower().StartsWith("to"))
                         {
-                            if (!_config.guiItem.enableStatistics)
-                            {
-                                item2.Visibility = Visibility.Hidden;
-                            }
+                            item2.Visibility = _config.GuiItem.EnableStatistics ? Visibility.Visible : Visibility.Hidden;
                         }
                     }
                 }
             }
         }
 
-        private void StorageUI()
+        private void StorageUI(string? n = null)
         {
             List<ColumnItem> lvColumnItem = new();
             for (int k = 0; k < lstProfiles.Columns.Count; k++)
@@ -363,8 +362,7 @@ namespace v2rayN.Views
                     Index = item2.DisplayIndex
                 });
             }
-            _config.uiItem.mainColumnItem = lvColumnItem;
-            ConfigHandler.SaveConfig(_config);
+            _config.UiItem.MainColumnItem = lvColumnItem;
         }
 
         #endregion UI
@@ -412,13 +410,16 @@ namespace v2rayN.Views
                        Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance))
             {
                 // Get the dragged Item
-                if (sender is not DataGrid listView) return;
+                if (sender is not DataGrid listView)
+                    return;
                 var listViewItem = FindAncestor<DataGridRow>((DependencyObject)e.OriginalSource);
-                if (listViewItem == null) return;           // Abort
-                                                            // Find the data behind the ListViewItem
+                if (listViewItem == null)
+                    return;           // Abort
+                                      // Find the data behind the ListViewItem
                 ProfileItemModel item = (ProfileItemModel)listView.ItemContainerGenerator.ItemFromContainer(listViewItem);
-                if (item == null) return;                   // Abort
-                                                            // Initialize the drag & drop operation
+                if (item == null)
+                    return;                   // Abort
+                                              // Initialize the drag & drop operation
                 startIndex = lstProfiles.SelectedIndex;
                 DataObject dragData = new(formatData, item);
                 DragDrop.DoDragDrop(listViewItem, dragData, DragDropEffects.Copy | DragDropEffects.Move);
@@ -438,7 +439,8 @@ namespace v2rayN.Views
             if (e.Data.GetDataPresent(formatData) && sender == e.Source)
             {
                 // Get the drop Item destination
-                if (sender is not DataGrid listView) return;
+                if (sender is not DataGrid listView)
+                    return;
                 var listViewItem = FindAncestor<DataGridRow>((DependencyObject)e.OriginalSource);
                 if (listViewItem == null)
                 {
@@ -448,7 +450,8 @@ namespace v2rayN.Views
                 }
                 // Find the data behind the Item
                 ProfileItemModel item = (ProfileItemModel)listView.ItemContainerGenerator.ItemFromContainer(listViewItem);
-                if (item == null) return;
+                if (item == null)
+                    return;
                 // Move item into observable collection
                 // (this will be automatically reflected to lstView.ItemsSource)
                 e.Effects = DragDropEffects.Move;

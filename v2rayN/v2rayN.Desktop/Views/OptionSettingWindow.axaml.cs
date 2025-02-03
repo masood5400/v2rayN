@@ -1,7 +1,7 @@
-﻿using Avalonia.Controls;
+using System.Reactive.Disposables;
+using Avalonia.Controls;
 using Avalonia.ReactiveUI;
 using ReactiveUI;
-using System.Reactive.Disposables;
 
 namespace v2rayN.Desktop.Views
 {
@@ -15,7 +15,6 @@ namespace v2rayN.Desktop.Views
 
             btnCancel.Click += (s, e) => this.Close();
             _config = AppHandler.Instance.Config;
-            // var lstFonts = GetFonts(Utils.GetFontsPath());
 
             ViewModel = new OptionSettingViewModel(UpdateViewHandler);
 
@@ -24,7 +23,7 @@ namespace v2rayN.Desktop.Views
             {
                 clbdestOverride.Items.Add(it);
             });
-            _config.inbound[0].destOverride?.ForEach(it =>
+            _config.Inbound.First().DestOverride?.ForEach(it =>
             {
                 clbdestOverride.SelectedItems.Add(it);
             });
@@ -83,17 +82,27 @@ namespace v2rayN.Desktop.Views
             {
                 cmbSubConvertUrl.Items.Add(it);
             });
+            Global.GeoFilesSources.ForEach(it =>
+            {
+                cmbGetFilesSourceUrl.Items.Add(it);
+            });
+            Global.SingboxRulesetSources.ForEach(it =>
+            {
+                cmbSrsFilesSourceUrl.Items.Add(it);
+            });
+            Global.RoutingRulesSources.ForEach(it =>
+            {
+                cmbRoutingRulesSourceUrl.Items.Add(it);
+            });
             foreach (EGirdOrientation it in Enum.GetValues(typeof(EGirdOrientation)))
             {
                 cmbMainGirdOrientation.Items.Add(it.ToString());
             }
 
-            //lstFonts.ForEach(it => { cmbcurrentFontFamily.Items.Add(it); });
-            //cmbcurrentFontFamily.Items.Add(string.Empty);
-
             this.WhenActivated(disposables =>
             {
                 this.Bind(ViewModel, vm => vm.localPort, v => v.txtlocalPort.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SecondLocalPortEnabled, v => v.togSecondLocalPortEnabled.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.udpEnabled, v => v.togudpEnabled.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.sniffingEnabled, v => v.togsniffingEnabled.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.routeOnly, v => v.togrouteOnly.IsChecked).DisposeWith(disposables);
@@ -115,23 +124,27 @@ namespace v2rayN.Desktop.Views
                 this.Bind(ViewModel, vm => vm.hyDownMbps, v => v.txtDownMbps.Text).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.enableFragment, v => v.togenableFragment.IsChecked).DisposeWith(disposables);
 
-                //this.Bind(ViewModel, vm => vm.AutoRun, v => v.togAutoRun.IsChecked).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.AutoRun, v => v.togAutoRun.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.EnableStatistics, v => v.togEnableStatistics.IsChecked).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.DisplayRealTimeSpeed, v => v.togDisplayRealTimeSpeed.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.KeepOlderDedupl, v => v.togKeepOlderDedupl.IsChecked).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.IgnoreGeoUpdateCore, v => v.togIgnoreGeoUpdateCore.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.EnableAutoAdjustMainLvColWidth, v => v.togEnableAutoAdjustMainLvColWidth.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.EnableUpdateSubOnlyRemarksExist, v => v.togEnableUpdateSubOnlyRemarksExist.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.EnableSecurityProtocolTls13, v => v.togEnableSecurityProtocolTls13.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.AutoHideStartup, v => v.togAutoHideStartup.IsChecked).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.EnableCheckPreReleaseUpdate, v => v.togEnableCheckPreReleaseUpdate.IsChecked).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.Hide2TrayWhenClose, v => v.togHide2TrayWhenClose.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.DoubleClick2Activate, v => v.togDoubleClick2Activate.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.AutoUpdateInterval, v => v.txtautoUpdateInterval.Text).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.CurrentFontFamily, v => v.cmbcurrentFontFamily.SelectedValue).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.SpeedTestTimeout, v => v.cmbSpeedTestTimeout.SelectedValue).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.SpeedTestUrl, v => v.cmbSpeedTestUrl.SelectedValue).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.SpeedPingTestUrl, v => v.cmbSpeedPingTestUrl.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SpeedTestPageSize, v => v.txtSpeedTestPageSize.Text).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.SubConvertUrl, v => v.cmbSubConvertUrl.SelectedValue).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.MainGirdOrientation, v => v.cmbMainGirdOrientation.SelectedIndex).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.GeoFileSourceUrl, v => v.cmbGetFilesSourceUrl.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SrsFileSourceUrl, v => v.cmbSrsFilesSourceUrl.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.RoutingRulesSourceUrl, v => v.cmbRoutingRulesSourceUrl.SelectedValue).DisposeWith(disposables);
 
                 this.Bind(ViewModel, vm => vm.notProxyLocalAddress, v => v.tognotProxyLocalAddress.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.systemProxyAdvancedProtocol, v => v.cmbsystemProxyAdvancedProtocol.SelectedValue).DisposeWith(disposables);
@@ -142,6 +155,7 @@ namespace v2rayN.Desktop.Views
                 this.Bind(ViewModel, vm => vm.TunMtu, v => v.cmbMtu.SelectedValue).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.TunEnableExInbound, v => v.togEnableExInbound.IsChecked).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.TunEnableIPv6Address, v => v.togEnableIPv6Address.IsChecked).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.TunLinuxSudoPassword, v => v.txtLinuxSudoPassword.Text).DisposeWith(disposables);
 
                 this.Bind(ViewModel, vm => vm.CoreType1, v => v.cmbCoreType1.SelectedValue).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.CoreType2, v => v.cmbCoreType2.SelectedValue).DisposeWith(disposables);
@@ -153,13 +167,15 @@ namespace v2rayN.Desktop.Views
                 this.BindCommand(ViewModel, vm => vm.SaveCmd, v => v.btnSave).DisposeWith(disposables);
             });
 
-            //if (Utils.IsWindows())
-            //{
-            //}
-            //else
-            //{
-            tabSystemproxy.IsVisible = false;
-            //}
+            if (Utils.IsWindows())
+            {
+                txbSettingsExceptionTip2.IsVisible = false;
+            }
+            else
+            {
+                txbSettingsExceptionTip.IsVisible = false;
+                panSystemProxyAdvanced.IsVisible = false;
+            }
         }
 
         private async Task<bool> UpdateViewHandler(EViewAction action, object? obj)
@@ -167,61 +183,55 @@ namespace v2rayN.Desktop.Views
             switch (action)
             {
                 case EViewAction.CloseWindow:
-                    //  WindowsUtils.SetAutoRun(Global.AutoRunRegPath, Global.AutoRunName, togAutoRun.IsChecked ?? false);
                     this.Close(true);
+                    break;
+
+                case EViewAction.InitSettingFont:
+                    await InitSettingFont();
                     break;
             }
             return await Task.FromResult(true);
         }
 
-        //private List<string> GetFonts(string path)
-        //{
-        //    var lstFonts = new List<string>();
-        //    try
-        //    {
-        //        string[] searchPatterns = { "*.ttf", "*.ttc" };
-        //        var files = new List<string>();
-        //        foreach (var pattern in searchPatterns)
-        //        {
-        //            files.AddRange(Directory.GetFiles(path, pattern));
-        //        }
-        //        var culture = _config.uiItem.currentLanguage == Global.Languages[0] ? "zh-cn" : "en-us";
-        //        var culture2 = "en-us";
-        //        foreach (var ttf in files)
-        //        {
-        //            var families = Fonts.GetFontFamilies(Utils.GetFontsPath(ttf));
-        //            foreach (FontFamily family in families)
-        //            {
-        //                var typefaces = family.GetTypefaces();
-        //                foreach (Typeface typeface in typefaces)
-        //                {
-        //                    typeface.TryGetGlyphTypeface(out GlyphTypeface glyph);
-        //                    //var fontFace = glyph.Win32FaceNames[new CultureInfo("en-us")];
-        //                    //if (!fontFace.Equals("Regular") && !fontFace.Equals("Normal"))
-        //                    //{
-        //                    //    continue;
-        //                    //}
-        //                    var fontFamily = glyph.Win32FamilyNames[new CultureInfo(culture)];
-        //                    if (Utils.IsNullOrEmpty(fontFamily))
-        //                    {
-        //                        fontFamily = glyph.Win32FamilyNames[new CultureInfo(culture2)];
-        //                        if (Utils.IsNullOrEmpty(fontFamily))
-        //                        {
-        //                            continue;
-        //                        }
-        //                    }
-        //                    lstFonts.Add(fontFamily);
-        //                    break;
-        //                }
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Logging.SaveLog("fill fonts error", ex);
-        //    }
-        //    return lstFonts;
-        //}
+        private async Task InitSettingFont()
+        {
+            var lstFonts = await GetFonts();
+            lstFonts.ForEach(it => { cmbcurrentFontFamily.Items.Add(it); });
+            cmbcurrentFontFamily.Items.Add(string.Empty);
+        }
+
+        private async Task<List<string>> GetFonts()
+        {
+            var lstFonts = new List<string>();
+            try
+            {
+                if (Utils.IsWindows())
+                {
+                    return lstFonts;
+                }
+                else if (Utils.IsNonWindows())
+                {
+                    var result = await Utils.GetLinuxFontFamily("zh");
+                    if (result.IsNullOrEmpty())
+                    {
+                        return lstFonts;
+                    }
+
+                    var lst = result.Split(Environment.NewLine)
+                        .Where(t => t.IsNotEmpty())
+                        .ToList()
+                        .Select(t => t.Split(",").FirstOrDefault() ?? "")
+                        .OrderBy(t => t)
+                        .ToList();
+                    return lst;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog("GetFonts", ex);
+            }
+            return lstFonts;
+        }
 
         private void ClbdestOverride_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {

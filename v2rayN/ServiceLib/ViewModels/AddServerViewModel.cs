@@ -1,6 +1,6 @@
-﻿using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
 using System.Reactive;
+using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 
 namespace ServiceLib.ViewModels
 {
@@ -17,77 +17,76 @@ namespace ServiceLib.ViewModels
         public AddServerViewModel(ProfileItem profileItem, Func<EViewAction, object?, Task<bool>>? updateView)
         {
             _config = AppHandler.Instance.Config;
-
             _updateView = updateView;
 
-            if (profileItem.indexId.IsNullOrEmpty())
+            SaveCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                profileItem.network = Global.DefaultNetwork;
-                profileItem.headerType = Global.None;
-                profileItem.requestHost = "";
-                profileItem.streamSecurity = "";
+                await SaveServerAsync();
+            });
+
+            if (profileItem.IndexId.IsNullOrEmpty())
+            {
+                profileItem.Network = Global.DefaultNetwork;
+                profileItem.HeaderType = Global.None;
+                profileItem.RequestHost = "";
+                profileItem.StreamSecurity = "";
                 SelectedSource = profileItem;
             }
             else
             {
                 SelectedSource = JsonUtils.DeepCopy(profileItem);
             }
-            CoreType = SelectedSource?.coreType?.ToString();
-
-            SaveCmd = ReactiveCommand.Create(() =>
-            {
-                SaveServerAsync();
-            });
+            CoreType = SelectedSource?.CoreType?.ToString();
         }
 
         private async Task SaveServerAsync()
         {
-            if (Utils.IsNullOrEmpty(SelectedSource.remarks))
+            if (Utils.IsNullOrEmpty(SelectedSource.Remarks))
             {
                 NoticeHandler.Instance.Enqueue(ResUI.PleaseFillRemarks);
                 return;
             }
 
-            if (Utils.IsNullOrEmpty(SelectedSource.address))
+            if (Utils.IsNullOrEmpty(SelectedSource.Address))
             {
                 NoticeHandler.Instance.Enqueue(ResUI.FillServerAddress);
                 return;
             }
-            var port = SelectedSource.port.ToString();
+            var port = SelectedSource.Port.ToString();
             if (Utils.IsNullOrEmpty(port) || !Utils.IsNumeric(port)
-                || SelectedSource.port <= 0 || SelectedSource.port >= Global.MaxPort)
+                || SelectedSource.Port <= 0 || SelectedSource.Port >= Global.MaxPort)
             {
                 NoticeHandler.Instance.Enqueue(ResUI.FillCorrectServerPort);
                 return;
             }
-            if (SelectedSource.configType == EConfigType.Shadowsocks)
+            if (SelectedSource.ConfigType == EConfigType.Shadowsocks)
             {
-                if (Utils.IsNullOrEmpty(SelectedSource.id))
+                if (Utils.IsNullOrEmpty(SelectedSource.Id))
                 {
                     NoticeHandler.Instance.Enqueue(ResUI.FillPassword);
                     return;
                 }
-                if (Utils.IsNullOrEmpty(SelectedSource.security))
+                if (Utils.IsNullOrEmpty(SelectedSource.Security))
                 {
                     NoticeHandler.Instance.Enqueue(ResUI.PleaseSelectEncryption);
                     return;
                 }
             }
-            if (SelectedSource.configType != EConfigType.SOCKS
-                && SelectedSource.configType != EConfigType.HTTP)
+            if (SelectedSource.ConfigType != EConfigType.SOCKS
+                && SelectedSource.ConfigType != EConfigType.HTTP)
             {
-                if (Utils.IsNullOrEmpty(SelectedSource.id))
+                if (Utils.IsNullOrEmpty(SelectedSource.Id))
                 {
                     NoticeHandler.Instance.Enqueue(ResUI.FillUUID);
                     return;
                 }
             }
-            SelectedSource.coreType = CoreType.IsNullOrEmpty() ? null : (ECoreType)Enum.Parse(typeof(ECoreType), CoreType);
+            SelectedSource.CoreType = CoreType.IsNullOrEmpty() ? null : (ECoreType)Enum.Parse(typeof(ECoreType), CoreType);
 
-            if (ConfigHandler.AddServer(_config, SelectedSource) == 0)
+            if (await ConfigHandler.AddServer(_config, SelectedSource) == 0)
             {
                 NoticeHandler.Instance.Enqueue(ResUI.OperationSuccess);
-                await _updateView?.Invoke(EViewAction.CloseWindow, null);
+                _updateView?.Invoke(EViewAction.CloseWindow, null);
             }
             else
             {

@@ -1,15 +1,20 @@
-﻿using Avalonia.Controls;
+using System.Reactive.Disposables;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.ReactiveUI;
 using ReactiveUI;
-using System.Reactive.Disposables;
 using v2rayN.Desktop.Common;
 
 namespace v2rayN.Desktop.Views
 {
     public partial class BackupAndRestoreView : ReactiveUserControl<BackupAndRestoreViewModel>
     {
-        private Window _window;
+        private Window? _window;
+
+        public BackupAndRestoreView()
+        {
+            InitializeComponent();
+        }
 
         public BackupAndRestoreView(Window window)
         {
@@ -25,10 +30,10 @@ namespace v2rayN.Desktop.Views
             {
                 this.Bind(ViewModel, vm => vm.OperationMsg, v => v.txtMsg.Text).DisposeWith(disposables);
 
-                this.Bind(ViewModel, vm => vm.SelectedSource.url, v => v.txtWebDavUrl.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.userName, v => v.txtWebDavUserName.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.password, v => v.txtWebDavPassword.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.dirName, v => v.txtWebDavDirName.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Url, v => v.txtWebDavUrl.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.UserName, v => v.txtWebDavUserName.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Password, v => v.txtWebDavPassword.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.DirName, v => v.txtWebDavDirName.Text).DisposeWith(disposables);
 
                 this.BindCommand(ViewModel, vm => vm.WebDavCheckCmd, v => v.menuWebDavCheck).DisposeWith(disposables);
 

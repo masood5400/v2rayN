@@ -1,3 +1,4 @@
+using System.Reactive.Disposables;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -7,7 +8,6 @@ using DialogHostAvalonia;
 using MsBox.Avalonia.Enums;
 using ReactiveUI;
 using Splat;
-using System.Reactive.Disposables;
 using v2rayN.Desktop.Common;
 
 namespace v2rayN.Desktop.Views
@@ -15,7 +15,12 @@ namespace v2rayN.Desktop.Views
     public partial class ProfilesView : ReactiveUserControl<ProfilesViewModel>
     {
         private static Config _config;
-        private Window _window;
+        private Window? _window;
+
+        public ProfilesView()
+        {
+            InitializeComponent();
+        }
 
         public ProfilesView(Window window)
         {
@@ -27,11 +32,11 @@ namespace v2rayN.Desktop.Views
             menuSelectAll.Click += menuSelectAll_Click;
             btnAutofitColumnWidth.Click += BtnAutofitColumnWidth_Click;
             txtServerFilter.KeyDown += TxtServerFilter_KeyDown;
-            menuStorageUI.Click += MenuStorageUI_Click;
             lstProfiles.KeyDown += LstProfiles_KeyDown;
             lstProfiles.SelectionChanged += lstProfiles_SelectionChanged;
             lstProfiles.DoubleTapped += LstProfiles_DoubleTapped;
             lstProfiles.LoadingRow += LstProfiles_LoadingRow;
+            lstProfiles.Sorting += LstProfiles_Sorting;
             //if (_config.uiItem.enableDragDropSort)
             //{
             //    lstProfiles.AllowDrop = true;
@@ -90,6 +95,14 @@ namespace v2rayN.Desktop.Views
 
             RestoreUI();
             ViewModel?.RefreshServers();
+            MessageBus.Current.Listen<string>(EMsgCommand.AppExit.ToString()).Subscribe(StorageUI);
+        }
+
+        private async void LstProfiles_Sorting(object? sender, DataGridColumnEventArgs e)
+        {
+            e.Handled = true;
+            await ViewModel?.SortServer(e.Column.Tag.ToString());
+            e.Handled = false;
         }
 
         //#region Event
@@ -99,7 +112,8 @@ namespace v2rayN.Desktop.Views
             switch (action)
             {
                 case EViewAction.SetClipboardData:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     await AvaUtils.SetClipboardData(this, (string)obj);
                     break;
 
@@ -122,7 +136,8 @@ namespace v2rayN.Desktop.Views
                     break;
 
                 case EViewAction.SaveFileDialog:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     var fileName = await UI.SaveFileDialog(_window, "");
                     if (fileName.IsNullOrEmpty())
                     {
@@ -132,24 +147,29 @@ namespace v2rayN.Desktop.Views
                     break;
 
                 case EViewAction.AddServerWindow:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return await new AddServerWindow((ProfileItem)obj).ShowDialog<bool>(_window);
 
                 case EViewAction.AddServer2Window:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return await new AddServer2Window((ProfileItem)obj).ShowDialog<bool>(_window);
 
                 case EViewAction.ShareServer:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     await ShareServer((string)obj);
                     break;
 
                 case EViewAction.SubEditWindow:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return await new SubEditWindow((SubItem)obj).ShowDialog<bool>(_window);
 
                 case EViewAction.DispatcherSpeedTest:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     Dispatcher.UIThread.Post(() =>
                         ViewModel?.SetSpeedTestResult((SpeedTestResult)obj),
                     DispatcherPriority.Default);
@@ -179,17 +199,15 @@ namespace v2rayN.Desktop.Views
 
         private void lstProfiles_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            List<ProfileItemModel> lst = [];
-            foreach (var item in lstProfiles.SelectedItems)
-            {
-                lst.Add((ProfileItemModel)item);
-            }
-            ViewModel.SelectedProfiles = lst;
+            ViewModel.SelectedProfiles = lstProfiles.SelectedItems.Cast<ProfileItemModel>().ToList();
         }
 
         private void LstProfiles_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
         {
-            if (_config.uiItem.doubleClick2Activate)
+            var source = e.Source as Border;
+            if (source?.Name == "HeaderBackground")
+                return;
+            if (_config.UiItem.DoubleClick2Activate)
             {
                 ViewModel?.SetDefaultServer();
             }
@@ -223,7 +241,7 @@ namespace v2rayN.Desktop.Views
 
         private void LstProfiles_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.KeyModifiers == KeyModifiers.Control)
+            if (e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta)
             {
                 switch (e.Key)
                 {
@@ -314,18 +332,13 @@ namespace v2rayN.Desktop.Views
             }
         }
 
-        private void MenuStorageUI_Click(object? sender, RoutedEventArgs e)
-        {
-            StorageUI();
-        }
-
         //#endregion Event
 
         //#region UI
 
         private void RestoreUI()
         {
-            var lvColumnItem = _config.uiItem.mainColumnItem.OrderBy(t => t.Index).ToList();
+            var lvColumnItem = _config.UiItem.MainColumnItem.OrderBy(t => t.Index).ToList();
             var displayIndex = 0;
             foreach (var item in lvColumnItem)
             {
@@ -343,22 +356,19 @@ namespace v2rayN.Desktop.Views
                         }
                         else
                         {
-                            item2.Width = new DataGridLength(item.Width, DataGridLengthUnitType.Pixel); ;
+                            item2.Width = new DataGridLength(item.Width, DataGridLengthUnitType.Pixel);
                             item2.DisplayIndex = displayIndex++;
                         }
-                        if (item.Name.StartsWith("to"))
+                        if (item.Name.ToLower().StartsWith("to"))
                         {
-                            if (!_config.guiItem.enableStatistics)
-                            {
-                                item2.IsVisible = false;
-                            }
+                            item2.IsVisible = _config.GuiItem.EnableStatistics;
                         }
                     }
                 }
             }
         }
 
-        private void StorageUI()
+        private void StorageUI(string? n = null)
         {
             List<ColumnItem> lvColumnItem = new();
             for (int k = 0; k < lstProfiles.Columns.Count; k++)
@@ -375,8 +385,7 @@ namespace v2rayN.Desktop.Views
                     Index = item2.DisplayIndex
                 });
             }
-            _config.uiItem.mainColumnItem = lvColumnItem;
-            ConfigHandler.SaveConfig(_config);
+            _config.UiItem.MainColumnItem = lvColumnItem;
         }
 
         //#endregion UI

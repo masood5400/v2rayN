@@ -65,7 +65,7 @@
                 Margin="8,0"
                 HorizontalAlignment="Left"
                 IsChecked="True"
-                Theme="{StaticResource SimpleToggleSwitch}" />
+                Theme="{DynamicResource SimpleToggleSwitch}" />
             <TextBlock
                 Margin="8,0"
                 VerticalAlignment="Center"
@@ -75,7 +75,7 @@
                 Margin="8,0"
                 HorizontalAlignment="Left"
                 IsChecked="True"
-                Theme="{StaticResource SimpleToggleSwitch}" />
+                Theme="{DynamicResource SimpleToggleSwitch}" />
         </WrapPanel>
         <TextBox
             Name="txtMsg"
@@ -83,6 +83,7 @@
             Classes="TextArea"
             IsReadOnly="True"
             TextAlignment="Left"
+            VerticalAlignment="Stretch"
             TextWrapping="Wrap">
             <TextBox.ContextMenu>
                 <ContextMenu>

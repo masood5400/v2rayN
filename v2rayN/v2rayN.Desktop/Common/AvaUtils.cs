@@ -1,9 +1,8 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using System.Reflection;
 
 namespace v2rayN.Desktop.Common
 {
@@ -14,7 +13,8 @@ namespace v2rayN.Desktop.Common
             try
             {
                 var clipboard = TopLevel.GetTopLevel(owner)?.Clipboard;
-                if (clipboard == null) return null;
+                if (clipboard == null)
+                    return null;
                 return await clipboard.GetTextAsync();
             }
             catch
@@ -28,7 +28,8 @@ namespace v2rayN.Desktop.Common
             try
             {
                 var clipboard = TopLevel.GetTopLevel(visual)?.Clipboard;
-                if (clipboard == null) return;
+                if (clipboard == null)
+                    return;
                 var dataObject = new DataObject();
                 dataObject.Set(DataFormats.Text, strData);
                 await clipboard.SetDataObjectAsync(dataObject);
@@ -40,23 +41,14 @@ namespace v2rayN.Desktop.Common
 
         public static WindowIcon GetAppIcon(ESysProxyType sysProxyType)
         {
-            int index = 1;
-            switch (sysProxyType)
+            var index = (int)sysProxyType + 1;
+            var fileName = Utils.GetPath($"NotifyIcon{index}.ico");
+            if (File.Exists(fileName))
             {
-                case ESysProxyType.ForcedClear:
-                    index = 1;
-                    break;
-
-                case ESysProxyType.ForcedChange:
-                case ESysProxyType.Pac:
-                    index = 2;
-                    break;
-
-                case ESysProxyType.Unchanged:
-                    index = 3;
-                    break;
+                return new(fileName);
             }
-            var uri = new Uri($"avares://{Assembly.GetExecutingAssembly().GetName().Name}/Assets/NotifyIcon{index}.ico");
+
+            var uri = new Uri(Path.Combine(Global.AvaAssets, $"NotifyIcon{index}.ico"));
             using var bitmap = new Bitmap(AssetLoader.Open(uri));
             return new(bitmap);
         }

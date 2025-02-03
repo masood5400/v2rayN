@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text;
 
@@ -10,7 +10,7 @@ namespace ServiceLib.Common
     {
         private static readonly Lazy<HttpClientHelper> _instance = new(() =>
         {
-            HttpClientHandler handler = new() { UseCookies = false };
+            SocketsHttpHandler handler = new() { UseCookies = false };
             HttpClientHelper helper = new(new HttpClient(handler));
             return helper;
         });
@@ -27,7 +27,7 @@ namespace ServiceLib.Common
 
             try
             {
-                HttpResponseMessage response = await httpClient.GetAsync(url);
+                var response = await httpClient.GetAsync(url);
                 return await response.Content.ReadAsStringAsync();
             }
             catch
@@ -38,13 +38,15 @@ namespace ServiceLib.Common
 
         public async Task<string?> GetAsync(string url)
         {
-            if (Utils.IsNullOrEmpty(url)) return null;
+            if (Utils.IsNullOrEmpty(url))
+                return null;
             return await httpClient.GetStringAsync(url);
         }
 
         public async Task<string?> GetAsync(HttpClient client, string url, CancellationToken token = default)
         {
-            if (Utils.IsNullOrEmpty(url)) return null;
+            if (Utils.IsNullOrEmpty(url))
+                return null;
             return await client.GetStringAsync(url, token);
         }
 
@@ -75,17 +77,19 @@ namespace ServiceLib.Common
         {
             ArgumentNullException.ThrowIfNull(url);
             ArgumentNullException.ThrowIfNull(fileName);
-            if (File.Exists(fileName)) File.Delete(fileName);
+            if (File.Exists(fileName))
+                File.Delete(fileName);
 
             using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token);
 
-            if (!response.IsSuccessStatusCode) throw new Exception(response.StatusCode.ToString());
+            if (!response.IsSuccessStatusCode)
+                throw new Exception(response.StatusCode.ToString());
 
             var total = response.Content.Headers.ContentLength ?? -1L;
             var canReportProgress = total != -1 && progress != null;
 
-            using var stream = await response.Content.ReadAsStreamAsync(token);
-            using var file = File.Create(fileName);
+            await using var stream = await response.Content.ReadAsStreamAsync(token);
+            await using var file = File.Create(fileName);
             var totalRead = 0L;
             var buffer = new byte[1024 * 1024];
             var progressPercentage = 0;
@@ -97,8 +101,9 @@ namespace ServiceLib.Common
                 var read = await stream.ReadAsync(buffer, token);
                 totalRead += read;
 
-                if (read == 0) break;
-                file.Write(buffer, 0, read);
+                if (read == 0)
+                    break;
+                await file.WriteAsync(buffer.AsMemory(0, read), token);
 
                 if (canReportProgress)
                 {
@@ -133,13 +138,13 @@ namespace ServiceLib.Common
             //var total = response.Content.Headers.ContentLength.HasValue ? response.Content.Headers.ContentLength.Value : -1L;
             //var canReportProgress = total != -1 && progress != null;
 
-            using var stream = await response.Content.ReadAsStreamAsync(token);
+            await using var stream = await response.Content.ReadAsStreamAsync(token);
             var totalRead = 0L;
             var buffer = new byte[1024 * 64];
             var isMoreToRead = true;
-            string progressSpeed = string.Empty;
-            DateTime totalDatetime = DateTime.Now;
-            int totalSecond = 0;
+            var progressSpeed = string.Empty;
+            var totalDatetime = DateTime.Now;
+            var totalSecond = 0;
 
             do
             {
@@ -168,7 +173,7 @@ namespace ServiceLib.Common
 
                     totalRead += read;
 
-                    TimeSpan ts = (DateTime.Now - totalDatetime);
+                    var ts = (DateTime.Now - totalDatetime);
                     if (progress != null && ts.Seconds > totalSecond)
                     {
                         totalSecond = ts.Seconds;

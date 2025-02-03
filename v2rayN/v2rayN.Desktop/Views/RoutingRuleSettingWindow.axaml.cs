@@ -1,11 +1,10 @@
-﻿using Avalonia.Controls;
+using System.Reactive.Disposables;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
 using Avalonia.ReactiveUI;
 using MsBox.Avalonia.Enums;
 using ReactiveUI;
-using System.Reactive.Disposables;
 using v2rayN.Desktop.Common;
 
 namespace v2rayN.Desktop.Views
@@ -27,7 +26,7 @@ namespace v2rayN.Desktop.Views
             lstRules.SelectionChanged += lstRules_SelectionChanged;
             lstRules.DoubleTapped += LstRules_DoubleTapped;
             menuRuleSelectAll.Click += menuRuleSelectAll_Click;
-            btnBrowseCustomIcon.Click += btnBrowseCustomIcon_Click;
+            //btnBrowseCustomIcon.Click += btnBrowseCustomIcon_Click;
             btnBrowseCustomRulesetPath4Singbox.Click += btnBrowseCustomRulesetPath4Singbox_ClickAsync;
 
             ViewModel = new RoutingRuleSettingViewModel(routingItem, UpdateViewHandler);
@@ -46,14 +45,14 @@ namespace v2rayN.Desktop.Views
                 this.OneWayBind(ViewModel, vm => vm.RulesItems, v => v.lstRules.ItemsSource).DisposeWith(disposables);
                 this.Bind(ViewModel, vm => vm.SelectedSource, v => v.lstRules.SelectedItem).DisposeWith(disposables);
 
-                this.Bind(ViewModel, vm => vm.SelectedRouting.remarks, v => v.txtRemarks.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedRouting.domainStrategy, v => v.cmbdomainStrategy.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedRouting.domainStrategy4Singbox, v => v.cmbdomainStrategy4Singbox.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedRouting.Remarks, v => v.txtRemarks.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedRouting.DomainStrategy, v => v.cmbdomainStrategy.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedRouting.DomainStrategy4Singbox, v => v.cmbdomainStrategy4Singbox.SelectedValue).DisposeWith(disposables);
 
-                this.Bind(ViewModel, vm => vm.SelectedRouting.url, v => v.txtUrl.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedRouting.customIcon, v => v.txtCustomIcon.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedRouting.customRulesetPath4Singbox, v => v.txtCustomRulesetPath4Singbox.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedRouting.sort, v => v.txtSort.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedRouting.Url, v => v.txtUrl.Text).DisposeWith(disposables);
+                //this.Bind(ViewModel, vm => vm.SelectedRouting.CustomIcon, v => v.txtCustomIcon.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedRouting.CustomRulesetPath4Singbox, v => v.txtCustomRulesetPath4Singbox.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedRouting.Sort, v => v.txtSort.Text).DisposeWith(disposables);
 
                 this.BindCommand(ViewModel, vm => vm.RuleAddCmd, v => v.menuRuleAdd).DisposeWith(disposables);
                 this.BindCommand(ViewModel, vm => vm.ImportRulesFromFileCmd, v => v.menuImportRulesFromFile).DisposeWith(disposables);
@@ -95,7 +94,8 @@ namespace v2rayN.Desktop.Views
                     break;
 
                 case EViewAction.RoutingRuleDetailsWindow:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     return await new RoutingRuleDetailsWindow((RulesItem)obj).ShowDialog<bool>(this);
 
                 case EViewAction.ImportRulesFromFile:
@@ -108,7 +108,8 @@ namespace v2rayN.Desktop.Views
                     break;
 
                 case EViewAction.SetClipboardData:
-                    if (obj is null) return false;
+                    if (obj is null)
+                        return false;
                     await AvaUtils.SetClipboardData(this, (string)obj);
                     break;
 
@@ -128,7 +129,7 @@ namespace v2rayN.Desktop.Views
 
         private void RoutingRuleSettingWindow_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.KeyModifiers == KeyModifiers.Control)
+            if (e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta)
             {
                 if (e.Key == Key.A)
                 {
@@ -166,12 +167,7 @@ namespace v2rayN.Desktop.Views
 
         private void lstRules_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            List<RulesItemModel> lst = [];
-            foreach (var item in lstRules.SelectedItems)
-            {
-                lst.Add((RulesItemModel)item);
-            }
-            ViewModel.SelectedSources = lst;
+            ViewModel.SelectedSources = lstRules.SelectedItems.Cast<RulesItemModel>().ToList();
         }
 
         private void LstRules_DoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
@@ -184,16 +180,16 @@ namespace v2rayN.Desktop.Views
             lstRules.SelectAll();
         }
 
-        private async void btnBrowseCustomIcon_Click(object? sender, RoutedEventArgs e)
-        {
-            var fileName = await UI.OpenFileDialog(this, FilePickerFileTypes.ImagePng);
-            if (fileName.IsNullOrEmpty())
-            {
-                return;
-            }
+        //private async void btnBrowseCustomIcon_Click(object? sender, RoutedEventArgs e)
+        //{
+        //    var fileName = await UI.OpenFileDialog(this, FilePickerFileTypes.ImagePng);
+        //    if (fileName.IsNullOrEmpty())
+        //    {
+        //        return;
+        //    }
 
-            txtCustomIcon.Text = fileName;
-        }
+        //    txtCustomIcon.Text = fileName;
+        //}
 
         private async void btnBrowseCustomRulesetPath4Singbox_ClickAsync(object? sender, RoutedEventArgs e)
         {
@@ -208,7 +204,7 @@ namespace v2rayN.Desktop.Views
 
         private void linkCustomRulesetPath4Singbox(object? sender, RoutedEventArgs e)
         {
-            Utils.ProcessStart("https://github.com/2dust/v2rayCustomRoutingList/blob/master/singbox_custom_ruleset_example.json");
+            ProcUtils.ProcessStart("https://github.com/2dust/v2rayCustomRoutingList/blob/master/singbox_custom_ruleset_example.json");
         }
     }
 }

@@ -15,8 +15,8 @@
     mc:Ignorable="d">
     <DockPanel Classes="Margin8">
         <StackPanel
-            Classes="Margin8"
             HorizontalAlignment="Center"
+            Classes="Margin8"
             DockPanel.Dock="Bottom"
             Orientation="Horizontal">
             <Button
@@ -28,34 +28,23 @@
                 x:Name="btnSave"
                 Width="100"
                 Content="{x:Static resx:ResUI.TbConfirm}"
-                Cursor="Hand" />
+                Cursor="Hand"
+                IsDefault="True" />
             <Button
                 x:Name="btnCancel"
                 Width="100"
                 Margin="8,0"
                 Content="{x:Static resx:ResUI.TbCancel}"
-                Cursor="Hand" />
+                Cursor="Hand"
+                IsCancel="True" />
         </StackPanel>
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid x:Name="gridText" Grid.Row="0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="400" />
-                    </Grid.ColumnDefinitions>
+            <Grid RowDefinitions="Auto,Auto,Auto">
+                <Grid
+                    x:Name="gridText"
+                    Grid.Row="0"
+                    ColumnDefinitions="Auto,400"
+                    RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="0"
@@ -66,77 +55,77 @@
                     <TextBlock
                         Grid.Row="1"
                         Grid.Column="0"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         Text="{x:Static resx:ResUI.TbDisplayGUI}" />
 
                     <TextBox
                         x:Name="txtGlobalHotkey0"
                         Grid.Row="1"
                         Grid.Column="1"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         IsReadOnly="True" />
 
                     <TextBlock
                         Grid.Row="2"
                         Grid.Column="0"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         Text="{x:Static resx:ResUI.TbClearSystemProxy}" />
                     <TextBox
                         x:Name="txtGlobalHotkey1"
                         Grid.Row="2"
                         Grid.Column="1"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         IsReadOnly="True" />
 
                     <TextBlock
                         Grid.Row="3"
                         Grid.Column="0"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         Text="{x:Static resx:ResUI.TbSetSystemProxy}" />
                     <TextBox
                         x:Name="txtGlobalHotkey2"
                         Grid.Row="3"
                         Grid.Column="1"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         IsReadOnly="True" />
                     <TextBlock
                         Grid.Row="4"
                         Grid.Column="0"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         Text="{x:Static resx:ResUI.TbNotChangeSystemProxy}" />
                     <TextBox
                         x:Name="txtGlobalHotkey3"
                         Grid.Row="4"
                         Grid.Column="1"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         IsReadOnly="True" />
                     <TextBlock
                         Grid.Row="5"
                         Grid.Column="0"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         Text="{x:Static resx:ResUI.TbSystemProxyPac}" />
                     <TextBox
                         x:Name="txtGlobalHotkey4"
                         Grid.Row="5"
                         Grid.Column="1"
-                        Classes="Margin8"
                         VerticalAlignment="Center"
+                        Classes="Margin8"
                         IsReadOnly="True" />
                 </Grid>
 
                 <TextBlock
                     Grid.Row="1"
-                    Classes="Margin8"
                     VerticalAlignment="Center"
+                    Classes="Margin8"
                     Text="{x:Static resx:ResUI.TbGlobalHotkeySettingTip}" />
             </Grid>
         </ScrollViewer>

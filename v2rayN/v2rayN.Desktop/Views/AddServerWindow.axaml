@@ -8,7 +8,7 @@
     xmlns:vms="clr-namespace:ServiceLib.ViewModels;assembly=ServiceLib"
     Title="{x:Static resx:ResUI.menuServers}"
     Width="900"
-    Height="700"
+    Height="600"
     x:DataType="vms:AddServerViewModel"
     ShowInTaskbar="False"
     WindowStartupLocation="CenterScreen"
@@ -23,40 +23,23 @@
                 x:Name="btnSave"
                 Width="100"
                 Content="{x:Static resx:ResUI.TbConfirm}"
-                Cursor="Hand" />
+                Cursor="Hand"
+                IsDefault="True" />
             <Button
                 x:Name="btnCancel"
                 Width="100"
                 Margin="8,0"
                 Content="{x:Static resx:ResUI.TbCancel}"
-                Cursor="Hand" />
+                Cursor="Hand"
+                IsCancel="True" />
         </StackPanel>
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
-                <Grid Grid.Row="0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                <Grid
+                    Grid.Row="0"
+                    ColumnDefinitions="180,Auto,Auto"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="0"
@@ -110,7 +93,7 @@
                         x:Name="txtPort"
                         Grid.Row="3"
                         Grid.Column="1"
-                        Width="100"
+                        Width="200"
                         HorizontalAlignment="Left"
                         Classes="Margin8" />
                 </Grid>
@@ -120,18 +103,9 @@
                 <Grid
                     x:Name="gridVMess"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -162,7 +136,7 @@
                         x:Name="txtAlterId"
                         Grid.Row="2"
                         Grid.Column="1"
-                        Width="100"
+                        Width="200"
                         HorizontalAlignment="Left"
                         Classes="Margin8" />
 
@@ -182,17 +156,9 @@
                 <Grid
                     x:Name="gridSs"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -223,17 +189,9 @@
                 <Grid
                     x:Name="gridSocks"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -264,18 +222,9 @@
                 <Grid
                     x:Name="gridVLESS"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -326,17 +275,9 @@
                 <Grid
                     x:Name="gridTrojan"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -367,17 +308,9 @@
                 <Grid
                     x:Name="gridHysteria2"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -408,17 +341,9 @@
                 <Grid
                     x:Name="gridTuic"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -456,25 +381,15 @@
                         x:Name="cmbHeaderType8"
                         Grid.Row="3"
                         Grid.Column="1"
-                        Width="100"
+                        Width="200"
                         Classes="Margin8" />
                 </Grid>
                 <Grid
                     x:Name="gridWireguard"
                     Grid.Row="2"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -539,7 +454,7 @@
                         x:Name="txtShortId9"
                         Grid.Row="5"
                         Grid.Column="1"
-                        Width="100"
+                        Width="200"
                         HorizontalAlignment="Left"
                         Classes="Margin8" />
                 </Grid>
@@ -549,22 +464,11 @@
                     Grid.Row="3"
                     Margin="0,10" />
 
-                <Grid x:Name="gridTransport" Grid.Row="4">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="gridTransport"
+                    Grid.Row="4"
+                    ColumnDefinitions="180,Auto,Auto"
+                    RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="0"
@@ -582,7 +486,7 @@
                         x:Name="cmbNetwork"
                         Grid.Row="1"
                         Grid.Column="1"
-                        Width="100"
+                        Width="200"
                         Classes="Margin8" />
                     <TextBlock
                         Grid.Row="1"
@@ -598,12 +502,50 @@
                         VerticalAlignment="Center"
                         Classes="Margin8"
                         Text="{x:Static resx:ResUI.TbHeaderType}" />
-                    <ComboBox
-                        x:Name="cmbHeaderType"
+                    <StackPanel
                         Grid.Row="2"
                         Grid.Column="1"
-                        Width="100"
-                        Classes="Margin8" />
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <ComboBox
+                            x:Name="cmbHeaderType"
+                            Width="200"
+                            Classes="Margin8" />
+
+                        <Button
+                            x:Name="btnExtra"
+                            Width="30"
+                            Height="30"
+                            Margin="10,0"
+                            Theme="{DynamicResource BorderlessButton}">
+                            <Button.Content>
+                                <PathIcon
+                                    Width="20"
+                                    Height="20"
+                                    Data="{StaticResource building_more}"
+                                    Foreground="{DynamicResource ButtonDefaultTertiaryForeground}" />
+                            </Button.Content>
+                            <Button.Flyout>
+                                <Flyout>
+                                    <StackPanel>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Classes="Margin8"
+                                            Text="{x:Static resx:ResUI.TransportExtraTip}" />
+                                        <TextBox
+                                            x:Name="txtExtra"
+                                            Width="400"
+                                            MinHeight="100"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Center"
+                                            Classes="TextArea Margin8"
+                                            MinLines="6"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
                     <TextBlock
                         x:Name="tipHeaderType"
                         Grid.Row="2"
@@ -655,18 +597,11 @@
 
                 <Separator Grid.Row="5" Margin="0,10" />
 
-                <Grid x:Name="gridTls" Grid.Row="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                <Grid
+                    x:Name="gridTls"
+                    Grid.Row="6"
+                    ColumnDefinitions="180,Auto"
+                    RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="0"
@@ -678,24 +613,15 @@
                         x:Name="cmbStreamSecurity"
                         Grid.Row="0"
                         Grid.Column="1"
-                        Width="100"
+                        Width="200"
                         Classes="Margin8" />
                 </Grid>
                 <Grid
                     x:Name="gridTlsMore"
                     Grid.Row="7"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="1"
@@ -747,24 +673,15 @@
                         x:Name="cmbAllowInsecure"
                         Grid.Row="4"
                         Grid.Column="1"
-                        Width="100"
+                        Width="200"
                         Classes="Margin8" />
                 </Grid>
                 <Grid
                     x:Name="gridRealityMore"
                     Grid.Row="7"
-                    IsVisible="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="180" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    ColumnDefinitions="180,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
                     <TextBlock
                         Grid.Row="0"

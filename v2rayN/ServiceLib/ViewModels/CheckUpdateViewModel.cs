@@ -1,9 +1,10 @@
-﻿using DynamicData;
+using System.Reactive;
+using System.Runtime.InteropServices;
+using DynamicData;
 using DynamicData.Binding;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using Splat;
-using System.Reactive;
 
 namespace ServiceLib.ViewModels
 {
@@ -11,122 +12,113 @@ namespace ServiceLib.ViewModels
     {
         private const string _geo = "GeoFiles";
         private string _v2rayN = ECoreType.v2rayN.ToString();
-        private List<CheckUpdateItem> _lstUpdated = [];
+        private List<CheckUpdateModel> _lstUpdated = [];
 
-        private IObservableCollection<CheckUpdateItem> _checkUpdateItem = new ObservableCollectionExtended<CheckUpdateItem>();
-        public IObservableCollection<CheckUpdateItem> CheckUpdateItems => _checkUpdateItem;
+        private IObservableCollection<CheckUpdateModel> _checkUpdateModel = new ObservableCollectionExtended<CheckUpdateModel>();
+        public IObservableCollection<CheckUpdateModel> CheckUpdateModels => _checkUpdateModel;
         public ReactiveCommand<Unit, Unit> CheckUpdateCmd { get; }
         [Reactive] public bool EnableCheckPreReleaseUpdate { get; set; }
-        [Reactive] public bool IsCheckUpdate { get; set; }
-        [Reactive] public bool AutoRun { get; set; }
 
         public CheckUpdateViewModel(Func<EViewAction, object?, Task<bool>>? updateView)
         {
             _config = AppHandler.Instance.Config;
             _updateView = updateView;
 
-            RefreshSubItems();
-
             CheckUpdateCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                await CheckUpdate()
-                .ContinueWith(t =>
-                {
-                    UpdateFinished();
-                });
+                await CheckUpdate();
             });
-            EnableCheckPreReleaseUpdate = _config.guiItem.checkPreReleaseUpdate;
-            IsCheckUpdate = true;
+
+            EnableCheckPreReleaseUpdate = _config.CheckUpdateItem.CheckPreReleaseUpdate;
 
             this.WhenAnyValue(
             x => x.EnableCheckPreReleaseUpdate,
             y => y == true)
-                .Subscribe(c => { _config.guiItem.checkPreReleaseUpdate = EnableCheckPreReleaseUpdate; });
+                .Subscribe(c => { _config.CheckUpdateItem.CheckPreReleaseUpdate = EnableCheckPreReleaseUpdate; });
+
+            RefreshCheckUpdateItems();
         }
 
-        private void RefreshSubItems()
+        private void RefreshCheckUpdateItems()
         {
-            _checkUpdateItem.Clear();
+            _checkUpdateModel.Clear();
 
-            _checkUpdateItem.Add(new CheckUpdateItem()
+            if (RuntimeInformation.ProcessArchitecture != Architecture.X86)
             {
-                isSelected = false,
-                coreType = _v2rayN,
-                remarks = ResUI.menuCheckUpdate,
-            });
-            _checkUpdateItem.Add(new CheckUpdateItem()
-            {
-                isSelected = true,
-                coreType = ECoreType.Xray.ToString(),
-                remarks = ResUI.menuCheckUpdate,
-            });
-            _checkUpdateItem.Add(new CheckUpdateItem()
-            {
-                isSelected = true,
-                coreType = ECoreType.mihomo.ToString(),
-                remarks = ResUI.menuCheckUpdate,
-            });
-            if (Utils.IsWindows())
-            {
-                _checkUpdateItem.Add(new CheckUpdateItem()
+                _checkUpdateModel.Add(GetCheckUpdateModel(_v2rayN));
+                //Not Windows and under Win10
+                if (!(Utils.IsWindows() && Environment.OSVersion.Version.Major < 10))
                 {
-                    isSelected = true,
-                    coreType = ECoreType.sing_box.ToString(),
-                    remarks = ResUI.menuCheckUpdate,
-                });
+                    _checkUpdateModel.Add(GetCheckUpdateModel(ECoreType.Xray.ToString()));
+                    _checkUpdateModel.Add(GetCheckUpdateModel(ECoreType.mihomo.ToString()));
+                    _checkUpdateModel.Add(GetCheckUpdateModel(ECoreType.sing_box.ToString()));
+                }
             }
-            _checkUpdateItem.Add(new CheckUpdateItem()
+            _checkUpdateModel.Add(GetCheckUpdateModel(_geo));
+        }
+
+        private CheckUpdateModel GetCheckUpdateModel(string coreType)
+        {
+            return new()
             {
-                isSelected = true,
-                coreType = _geo,
-                remarks = ResUI.menuCheckUpdate,
-            });
+                IsSelected = _config.CheckUpdateItem.SelectedCoreTypes?.Contains(coreType) ?? true,
+                CoreType = coreType,
+                Remarks = ResUI.menuCheckUpdate,
+            };
+        }
+
+        private async Task SaveSelectedCoreTypes()
+        {
+            _config.CheckUpdateItem.SelectedCoreTypes = _checkUpdateModel.Where(t => t.IsSelected == true).Select(t => t.CoreType ?? "").ToList();
+            await ConfigHandler.SaveConfig(_config);
         }
 
         private async Task CheckUpdate()
         {
             _lstUpdated.Clear();
-            _lstUpdated = _checkUpdateItem.Where(x => x.isSelected == true)
-                    .Select(x => new CheckUpdateItem() { coreType = x.coreType }).ToList();
+            _lstUpdated = _checkUpdateModel.Where(x => x.IsSelected == true)
+                    .Select(x => new CheckUpdateModel() { CoreType = x.CoreType }).ToList();
+            await SaveSelectedCoreTypes();
 
-            for (int k = _checkUpdateItem.Count - 1; k >= 0; k--)
+            for (var k = _checkUpdateModel.Count - 1; k >= 0; k--)
             {
-                var item = _checkUpdateItem[k];
-                if (item.isSelected == true)
+                var item = _checkUpdateModel[k];
+                if (item.IsSelected != true)
+                    continue;
+
+                UpdateView(item.CoreType, "...");
+                if (item.CoreType == _geo)
                 {
-                    IsCheckUpdate = false;
-                    UpdateView(item.coreType, "...");
-                    if (item.coreType == _geo)
-                    {
-                        await CheckUpdateGeo();
-                    }
-                    else if (item.coreType == _v2rayN)
-                    {
-                        await CheckUpdateN(EnableCheckPreReleaseUpdate);
-                    }
-                    else if (item.coreType == ECoreType.mihomo.ToString())
-                    {
-                        await CheckUpdateCore(item, false);
-                    }
-                    else
-                    {
-                        await CheckUpdateCore(item, EnableCheckPreReleaseUpdate);
-                    }
+                    await CheckUpdateGeo();
+                }
+                else if (item.CoreType == _v2rayN)
+                {
+                    await CheckUpdateN(EnableCheckPreReleaseUpdate);
+                }
+                else if (item.CoreType == ECoreType.Xray.ToString())
+                {
+                    await CheckUpdateCore(item, EnableCheckPreReleaseUpdate);
+                }
+                else
+                {
+                    await CheckUpdateCore(item, false);
                 }
             }
+
+            await UpdateFinished();
         }
 
         private void UpdatedPlusPlus(string coreType, string fileName)
         {
-            var item = _lstUpdated.FirstOrDefault(x => x.coreType == coreType);
+            var item = _lstUpdated.FirstOrDefault(x => x.CoreType == coreType);
             if (item == null)
             {
                 return;
             }
-            item.isFinished = true;
+            item.IsFinished = true;
             if (!fileName.IsNullOrEmpty())
             {
-                item.fileName = fileName;
+                item.FileName = fileName;
             }
         }
 
@@ -149,16 +141,6 @@ namespace ServiceLib.ViewModels
 
         private async Task CheckUpdateN(bool preRelease)
         {
-            ////Check for standalone windows .Net version
-            //if (Utils.IsWindows()
-            //    && File.Exists(Path.Combine(Utils.StartupPath(), "wpfgfx_cor3.dll"))
-            //    && File.Exists(Path.Combine(Utils.StartupPath(), "D3DCompiler_47_cor3.dll"))
-            //    )
-            //{
-            //    UpdateView(_v2rayN, ResUI.UpdateStandalonePackageTip);
-            //    return;
-            //}
-
             void _updateUI(bool success, string msg)
             {
                 UpdateView(_v2rayN, msg);
@@ -175,35 +157,35 @@ namespace ServiceLib.ViewModels
                 });
         }
 
-        private async Task CheckUpdateCore(CheckUpdateItem item, bool preRelease)
+        private async Task CheckUpdateCore(CheckUpdateModel model, bool preRelease)
         {
             void _updateUI(bool success, string msg)
             {
-                UpdateView(item.coreType, msg);
+                UpdateView(model.CoreType, msg);
                 if (success)
                 {
-                    UpdateView(item.coreType, ResUI.MsgUpdateV2rayCoreSuccessfullyMore);
+                    UpdateView(model.CoreType, ResUI.MsgUpdateV2rayCoreSuccessfullyMore);
 
-                    UpdatedPlusPlus(item.coreType, msg);
+                    UpdatedPlusPlus(model.CoreType, msg);
                 }
             }
-            var type = (ECoreType)Enum.Parse(typeof(ECoreType), item.coreType);
+            var type = (ECoreType)Enum.Parse(typeof(ECoreType), model.CoreType);
             await (new UpdateService()).CheckUpdateCore(type, _config, _updateUI, preRelease)
                 .ContinueWith(t =>
                 {
-                    UpdatedPlusPlus(item.coreType, "");
+                    UpdatedPlusPlus(model.CoreType, "");
                 });
         }
 
         private async Task UpdateFinished()
         {
-            if (_lstUpdated.Count > 0 && _lstUpdated.Count(x => x.isFinished == true) == _lstUpdated.Count)
+            if (_lstUpdated.Count > 0 && _lstUpdated.Count(x => x.IsFinished == true) == _lstUpdated.Count)
             {
                 _updateView?.Invoke(EViewAction.DispatcherCheckUpdateFinished, false);
                 await Task.Delay(2000);
-                UpgradeCore();
+                await UpgradeCore();
 
-                if (_lstUpdated.Any(x => x.coreType == _v2rayN && x.isFinished == true))
+                if (_lstUpdated.Any(x => x.CoreType == _v2rayN && x.IsFinished == true))
                 {
                     await Task.Delay(1000);
                     UpgradeN();
@@ -217,7 +199,6 @@ namespace ServiceLib.ViewModels
         {
             if (blReload)
             {
-                IsCheckUpdate = true;
                 Locator.Current.GetService<MainWindowViewModel>()?.Reload();
             }
             else
@@ -230,12 +211,17 @@ namespace ServiceLib.ViewModels
         {
             try
             {
-                var fileName = _lstUpdated.FirstOrDefault(x => x.coreType == _v2rayN)?.fileName;
+                var fileName = _lstUpdated.FirstOrDefault(x => x.CoreType == _v2rayN)?.FileName;
                 if (fileName.IsNullOrEmpty())
                 {
                     return;
                 }
-                Locator.Current.GetService<MainWindowViewModel>()?.V2rayUpgrade(fileName);
+                if (!Utils.UpgradeAppExists(out _))
+                {
+                    UpdateView(_v2rayN, ResUI.UpgradeAppNotExistTip);
+                    return;
+                }
+                Locator.Current.GetService<MainWindowViewModel>()?.UpgradeApp(fileName);
             }
             catch (Exception ex)
             {
@@ -243,36 +229,54 @@ namespace ServiceLib.ViewModels
             }
         }
 
-        private void UpgradeCore()
+        private async Task UpgradeCore()
         {
             foreach (var item in _lstUpdated)
             {
-                if (item.fileName.IsNullOrEmpty())
+                if (item.FileName.IsNullOrEmpty())
                 {
                     continue;
                 }
 
-                var fileName = item.fileName;
+                var fileName = item.FileName;
                 if (!File.Exists(fileName))
                 {
                     continue;
                 }
-                string toPath = Utils.GetBinPath("", item.coreType);
+                var toPath = Utils.GetBinPath("", item.CoreType);
 
                 if (fileName.Contains(".tar.gz"))
                 {
-                    //It's too complicated to unzip. TODO
+                    FileManager.DecompressTarFile(fileName, toPath);
+                    var dir = new DirectoryInfo(toPath);
+                    if (dir.Exists)
+                    {
+                        foreach (var subDir in dir.GetDirectories())
+                        {
+                            FileManager.CopyDirectory(subDir.FullName, toPath, false, true);
+                            subDir.Delete(true);
+                        }
+                    }
                 }
                 else if (fileName.Contains(".gz"))
                 {
-                    FileManager.UncompressedFile(fileName, toPath, item.coreType);
+                    FileManager.DecompressFile(fileName, toPath, item.CoreType);
                 }
                 else
                 {
-                    FileManager.ZipExtractToFile(fileName, toPath, _config.guiItem.ignoreGeoUpdateCore ? "geo" : "");
+                    FileManager.ZipExtractToFile(fileName, toPath, "geo");
                 }
 
-                UpdateView(item.coreType, ResUI.MsgUpdateV2rayCoreSuccessfully);
+                if (Utils.IsNonWindows())
+                {
+                    var filesList = (new DirectoryInfo(toPath)).GetFiles().Select(u => u.FullName).ToList();
+                    foreach (var file in filesList)
+                    {
+                        await Utils.SetLinuxChmod(Path.Combine(toPath, item.CoreType.ToLower()));
+                    }
+                }
+
+                UpdateView(item.CoreType, ResUI.MsgUpdateV2rayCoreSuccessfully);
 
                 if (File.Exists(fileName))
                 {
@@ -283,23 +287,22 @@ namespace ServiceLib.ViewModels
 
         private void UpdateView(string coreType, string msg)
         {
-            var item = new CheckUpdateItem()
+            var item = new CheckUpdateModel()
             {
-                coreType = coreType,
-                remarks = msg,
+                CoreType = coreType,
+                Remarks = msg,
             };
             _updateView?.Invoke(EViewAction.DispatcherCheckUpdate, item);
         }
 
-        public void UpdateViewResult(CheckUpdateItem item)
+        public void UpdateViewResult(CheckUpdateModel model)
         {
-            var found = _checkUpdateItem.FirstOrDefault(t => t.coreType == item.coreType);
-            if (found != null)
-            {
-                var itemCopy = JsonUtils.DeepCopy(found);
-                itemCopy.remarks = item.remarks;
-                _checkUpdateItem.Replace(found, itemCopy);
-            }
+            var found = _checkUpdateModel.FirstOrDefault(t => t.CoreType == model.CoreType);
+            if (found == null)
+                return;
+            var itemCopy = JsonUtils.DeepCopy(found);
+            itemCopy.Remarks = model.Remarks;
+            _checkUpdateModel.Replace(found, itemCopy);
         }
     }
 }

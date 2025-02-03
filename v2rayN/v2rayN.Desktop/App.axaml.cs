@@ -1,15 +1,14 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using v2rayN.Desktop.ViewModels;
+using Splat;
+using v2rayN.Desktop.Common;
 using v2rayN.Desktop.Views;
 
 namespace v2rayN.Desktop;
 
 public partial class App : Application
 {
-    //public static EventWaitHandle ProgramStarted;
-
     public override void Initialize()
     {
         if (!AppHandler.Instance.InitApp())
@@ -22,36 +21,22 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-        this.DataContext = new AppViewModel();
+        var ViewModel = new StatusBarViewModel(null);
+        Locator.CurrentMutable.RegisterLazySingleton(() => ViewModel, typeof(StatusBarViewModel));
+        this.DataContext = ViewModel;
     }
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            OnStartup(desktop.Args);
+            AppHandler.Instance.InitComponents();
 
             desktop.Exit += OnExit;
             desktop.MainWindow = new MainWindow();
         }
 
         base.OnFrameworkInitializationCompleted();
-    }
-
-    private void OnStartup(string[]? Args)
-    {
-        var exePathKey = Utils.GetMD5(Utils.GetExePath());
-
-        var rebootas = (Args ?? new string[] { }).Any(t => t == Global.RebootAs);
-        //ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out bool bCreatedNew);
-        //if (!rebootas && !bCreatedNew)
-        //{
-        //    ProgramStarted.Set();
-        //    Environment.Exit(0);
-        //    return;
-        //}
-
-        AppHandler.Instance.InitComponents();
     }
 
     private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -71,18 +56,25 @@ public partial class App : Application
     {
     }
 
-    private void TrayIcon_Clicked(object? sender, EventArgs e)
+    private async void MenuAddServerViaClipboardClick(object? sender, EventArgs e)
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (desktop.MainWindow.IsVisible)
+            if (desktop.MainWindow != null)
             {
-                desktop.MainWindow?.Hide();
-            }
-            else
-            {
-                desktop.MainWindow?.Show();
+                var clipboardData = await AvaUtils.GetClipboardData(desktop.MainWindow);
+                var service = Locator.Current.GetService<MainWindowViewModel>();
+                if (service != null)
+                    _ = service.AddServerViaClipboardAsync(clipboardData);
             }
         }
+    }
+
+    private async void MenuExit_Click(object? sender, EventArgs e)
+    {
+        var service = Locator.Current.GetService<MainWindowViewModel>();
+        if (service != null)
+            await service.MyAppExitAsync(true);
+        service?.Shutdown(true);
     }
 }

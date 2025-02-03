@@ -1,8 +1,8 @@
-﻿using Avalonia.Controls;
+using System.Reactive.Disposables;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.ReactiveUI;
 using ReactiveUI;
-using System.Reactive.Disposables;
 
 namespace v2rayN.Desktop.Views
 {
@@ -26,20 +26,10 @@ namespace v2rayN.Desktop.Views
 
             ViewModel = new AddServerViewModel(profileItem, UpdateViewHandler);
 
-            if (profileItem.configType == EConfigType.VLESS)
+            Global.CoreTypes.ForEach(it =>
             {
-                Global.CoreTypes4VLESS.ForEach(it =>
-                {
-                    cmbCoreType.Items.Add(it);
-                });
-            }
-            else
-            {
-                Global.CoreTypes.ForEach(it =>
-                {
-                    cmbCoreType.Items.Add(it);
-                });
-            }
+                cmbCoreType.Items.Add(it);
+            });
             cmbCoreType.Items.Add(string.Empty);
 
             cmbStreamSecurity.Items.Add(string.Empty);
@@ -63,7 +53,7 @@ namespace v2rayN.Desktop.Views
                 cmbAlpn.Items.Add(it);
             });
 
-            switch (profileItem.configType)
+            switch (profileItem.ConfigType)
             {
                 case EConfigType.VMess:
                     gridVMess.IsVisible = true;
@@ -71,9 +61,9 @@ namespace v2rayN.Desktop.Views
                     {
                         cmbSecurity.Items.Add(it);
                     });
-                    if (profileItem.security.IsNullOrEmpty())
+                    if (profileItem.Security.IsNullOrEmpty())
                     {
-                        profileItem.security = Global.DefaultSecurity;
+                        profileItem.Security = Global.DefaultSecurity;
                     }
                     break;
 
@@ -97,9 +87,9 @@ namespace v2rayN.Desktop.Views
                     {
                         cmbFlow5.Items.Add(it);
                     });
-                    if (profileItem.security.IsNullOrEmpty())
+                    if (profileItem.Security.IsNullOrEmpty())
                     {
-                        profileItem.security = Global.None;
+                        profileItem.Security = Global.None;
                     }
                     break;
 
@@ -151,80 +141,81 @@ namespace v2rayN.Desktop.Views
             this.WhenActivated(disposables =>
             {
                 this.Bind(ViewModel, vm => vm.CoreType, v => v.cmbCoreType.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.remarks, v => v.txtRemarks.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.address, v => v.txtAddress.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.port, v => v.txtPort.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Remarks, v => v.txtRemarks.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Address, v => v.txtAddress.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Port, v => v.txtPort.Text).DisposeWith(disposables);
 
-                switch (profileItem.configType)
+                switch (profileItem.ConfigType)
                 {
                     case EConfigType.VMess:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.alterId, v => v.txtAlterId.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.security, v => v.cmbSecurity.SelectedValue).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.AlterId, v => v.txtAlterId.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Security, v => v.cmbSecurity.SelectedValue).DisposeWith(disposables);
                         break;
 
                     case EConfigType.Shadowsocks:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId3.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.security, v => v.cmbSecurity3.SelectedValue).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId3.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Security, v => v.cmbSecurity3.SelectedValue).DisposeWith(disposables);
                         break;
 
                     case EConfigType.SOCKS:
                     case EConfigType.HTTP:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId4.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.security, v => v.txtSecurity4.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId4.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Security, v => v.txtSecurity4.Text).DisposeWith(disposables);
                         break;
 
                     case EConfigType.VLESS:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId5.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.flow, v => v.cmbFlow5.SelectedValue).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.security, v => v.txtSecurity5.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId5.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Flow, v => v.cmbFlow5.SelectedValue).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Security, v => v.txtSecurity5.Text).DisposeWith(disposables);
                         break;
 
                     case EConfigType.Trojan:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId6.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.flow, v => v.cmbFlow6.SelectedValue).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId6.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Flow, v => v.cmbFlow6.SelectedValue).DisposeWith(disposables);
                         break;
 
                     case EConfigType.Hysteria2:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId7.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.path, v => v.txtPath7.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId7.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Path, v => v.txtPath7.Text).DisposeWith(disposables);
                         break;
 
                     case EConfigType.TUIC:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId8.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.security, v => v.txtSecurity8.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.headerType, v => v.cmbHeaderType8.SelectedValue).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId8.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Security, v => v.txtSecurity8.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.HeaderType, v => v.cmbHeaderType8.SelectedValue).DisposeWith(disposables);
                         break;
 
                     case EConfigType.WireGuard:
-                        this.Bind(ViewModel, vm => vm.SelectedSource.id, v => v.txtId9.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.publicKey, v => v.txtPublicKey9.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.path, v => v.txtPath9.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.requestHost, v => v.txtRequestHost9.Text).DisposeWith(disposables);
-                        this.Bind(ViewModel, vm => vm.SelectedSource.shortId, v => v.txtShortId9.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Id, v => v.txtId9.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.PublicKey, v => v.txtPublicKey9.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.Path, v => v.txtPath9.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.RequestHost, v => v.txtRequestHost9.Text).DisposeWith(disposables);
+                        this.Bind(ViewModel, vm => vm.SelectedSource.ShortId, v => v.txtShortId9.Text).DisposeWith(disposables);
                         break;
                 }
-                this.Bind(ViewModel, vm => vm.SelectedSource.network, v => v.cmbNetwork.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.headerType, v => v.cmbHeaderType.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.requestHost, v => v.txtRequestHost.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.path, v => v.txtPath.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Network, v => v.cmbNetwork.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.HeaderType, v => v.cmbHeaderType.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.RequestHost, v => v.txtRequestHost.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Path, v => v.txtPath.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Extra, v => v.txtExtra.Text).DisposeWith(disposables);
 
-                this.Bind(ViewModel, vm => vm.SelectedSource.streamSecurity, v => v.cmbStreamSecurity.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.sni, v => v.txtSNI.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.allowInsecure, v => v.cmbAllowInsecure.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.fingerprint, v => v.cmbFingerprint.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.alpn, v => v.cmbAlpn.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.StreamSecurity, v => v.cmbStreamSecurity.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Sni, v => v.txtSNI.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.AllowInsecure, v => v.cmbAllowInsecure.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Fingerprint, v => v.cmbFingerprint.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Alpn, v => v.cmbAlpn.SelectedValue).DisposeWith(disposables);
                 //reality
-                this.Bind(ViewModel, vm => vm.SelectedSource.sni, v => v.txtSNI2.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.fingerprint, v => v.cmbFingerprint2.SelectedValue).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.publicKey, v => v.txtPublicKey.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.shortId, v => v.txtShortId.Text).DisposeWith(disposables);
-                this.Bind(ViewModel, vm => vm.SelectedSource.spiderX, v => v.txtSpiderX.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Sni, v => v.txtSNI2.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.Fingerprint, v => v.cmbFingerprint2.SelectedValue).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.PublicKey, v => v.txtPublicKey.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.ShortId, v => v.txtShortId.Text).DisposeWith(disposables);
+                this.Bind(ViewModel, vm => vm.SelectedSource.SpiderX, v => v.txtSpiderX.Text).DisposeWith(disposables);
 
                 this.BindCommand(ViewModel, vm => vm.SaveCmd, v => v.btnSave).DisposeWith(disposables);
             });
 
-            this.Title = $"{profileItem.configType}";
+            this.Title = $"{profileItem.ConfigType}";
         }
 
         private async Task<bool> UpdateViewHandler(EViewAction action, object? obj)
@@ -272,7 +263,7 @@ namespace v2rayN.Desktop.Views
         private void btnGUID_Click(object? sender, RoutedEventArgs e)
         {
             txtId.Text =
-            txtId5.Text = Utils.GetGUID();
+            txtId5.Text = Utils.GetGuid();
         }
 
         private void SetHeaderType()
@@ -299,6 +290,13 @@ namespace v2rayN.Desktop.Views
                     cmbHeaderType.Items.Add(it);
                 });
             }
+            else if (network is nameof(ETransport.xhttp))
+            {
+                Global.XhttpMode.ForEach(it =>
+                {
+                    cmbHeaderType.Items.Add(it);
+                });
+            }
             else if (network == nameof(ETransport.grpc))
             {
                 cmbHeaderType.Items.Add(Global.GrpcGunMode);
@@ -319,6 +317,7 @@ namespace v2rayN.Desktop.Views
                 network = Global.DefaultNetwork;
             }
             labHeaderType.IsVisible = true;
+            btnExtra.IsVisible = false;
             tipRequestHost.Text =
             tipPath.Text =
             tipHeaderType.Text = string.Empty;
@@ -337,9 +336,16 @@ namespace v2rayN.Desktop.Views
 
                 case nameof(ETransport.ws):
                 case nameof(ETransport.httpupgrade):
-                case nameof(ETransport.splithttp):
                     tipRequestHost.Text = ResUI.TransportRequestHostTip2;
                     tipPath.Text = ResUI.TransportPathTip1;
+                    break;
+
+                case nameof(ETransport.xhttp):
+                    tipRequestHost.Text = ResUI.TransportRequestHostTip2;
+                    tipPath.Text = ResUI.TransportPathTip1;
+                    tipHeaderType.Text = ResUI.TransportHeaderTypeTip5;
+                    labHeaderType.IsVisible = false;
+                    btnExtra.IsVisible = true;
                     break;
 
                 case nameof(ETransport.h2):

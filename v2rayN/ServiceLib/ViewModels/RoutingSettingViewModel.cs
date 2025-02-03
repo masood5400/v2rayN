@@ -1,15 +1,12 @@
-﻿using DynamicData.Binding;
+using System.Reactive;
+using DynamicData.Binding;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
-using System.Reactive;
 
 namespace ServiceLib.ViewModels
 {
     public class RoutingSettingViewModel : MyReactiveObject
     {
-        private RoutingItem _lockedItem;
-        private List<RulesItem> _lockedRules;
-
         #region Reactive
 
         private IObservableCollection<RoutingItemModel> _routingItems = new ObservableCollectionExtended<RoutingItemModel>();
@@ -21,12 +18,6 @@ namespace ServiceLib.ViewModels
         public IList<RoutingItemModel> SelectedSources { get; set; }
 
         [Reactive]
-        public bool enableRoutingAdvanced { get; set; }
-
-        [Reactive]
-        public bool enableRoutingBasic { get; set; }
-
-        [Reactive]
         public string domainStrategy { get; set; }
 
         [Reactive]
@@ -35,25 +26,6 @@ namespace ServiceLib.ViewModels
         [Reactive]
         public string domainStrategy4Singbox { get; set; }
 
-        [Reactive]
-        public string ProxyDomain { get; set; }
-
-        [Reactive]
-        public string ProxyIP { get; set; }
-
-        [Reactive]
-        public string DirectDomain { get; set; }
-
-        [Reactive]
-        public string DirectIP { get; set; }
-
-        [Reactive]
-        public string BlockDomain { get; set; }
-
-        [Reactive]
-        public string BlockIP { get; set; }
-
-        public ReactiveCommand<Unit, Unit> RoutingBasicImportRulesCmd { get; }
         public ReactiveCommand<Unit, Unit> RoutingAdvancedAddCmd { get; }
         public ReactiveCommand<Unit, Unit> RoutingAdvancedRemoveCmd { get; }
         public ReactiveCommand<Unit, Unit> RoutingAdvancedSetDefaultCmd { get; }
@@ -67,122 +39,74 @@ namespace ServiceLib.ViewModels
         public RoutingSettingViewModel(Func<EViewAction, object?, Task<bool>>? updateView)
         {
             _config = AppHandler.Instance.Config;
-
             _updateView = updateView;
-            SelectedSource = new();
-
-            ConfigHandler.InitBuiltinRouting(_config);
-
-            enableRoutingAdvanced = _config.routingBasicItem.enableRoutingAdvanced;
-            domainStrategy = _config.routingBasicItem.domainStrategy;
-            domainMatcher = _config.routingBasicItem.domainMatcher;
-            domainStrategy4Singbox = _config.routingBasicItem.domainStrategy4Singbox;
-
-            RefreshRoutingItems();
-
-            BindingLockedData();
 
             var canEditRemove = this.WhenAnyValue(
-               x => x.SelectedSource,
-               selectedSource => selectedSource != null && !selectedSource.remarks.IsNullOrEmpty());
+                x => x.SelectedSource,
+                selectedSource => selectedSource != null && !selectedSource.Remarks.IsNullOrEmpty());
 
-            this.WhenAnyValue(
-                x => x.enableRoutingAdvanced)
-                .Subscribe(c => enableRoutingBasic = !enableRoutingAdvanced);
-
-            RoutingBasicImportRulesCmd = ReactiveCommand.Create(() =>
+            RoutingAdvancedAddCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                RoutingBasicImportRules();
+                await RoutingAdvancedEditAsync(true);
             });
-
-            RoutingAdvancedAddCmd = ReactiveCommand.Create(() =>
+            RoutingAdvancedRemoveCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                RoutingAdvancedEditAsync(true);
-            });
-            RoutingAdvancedRemoveCmd = ReactiveCommand.Create(() =>
-            {
-                RoutingAdvancedRemoveAsync();
+                await RoutingAdvancedRemoveAsync();
             }, canEditRemove);
-            RoutingAdvancedSetDefaultCmd = ReactiveCommand.Create(() =>
+            RoutingAdvancedSetDefaultCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                RoutingAdvancedSetDefault();
+                await RoutingAdvancedSetDefault();
             }, canEditRemove);
-            RoutingAdvancedImportRulesCmd = ReactiveCommand.Create(() =>
+            RoutingAdvancedImportRulesCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                RoutingAdvancedImportRules();
+                await RoutingAdvancedImportRules();
             });
 
-            SaveCmd = ReactiveCommand.Create(() =>
+            SaveCmd = ReactiveCommand.CreateFromTask(async () =>
             {
-                SaveRoutingAsync();
+                await SaveRoutingAsync();
             });
+
+            _ = Init();
         }
 
-        #region locked
-
-        private void BindingLockedData()
+        private async Task Init()
         {
-            _lockedItem = ConfigHandler.GetLockedRoutingItem(_config);
-            if (_lockedItem != null)
-            {
-                _lockedRules = JsonUtils.Deserialize<List<RulesItem>>(_lockedItem.ruleSet);
-                ProxyDomain = Utils.List2String(_lockedRules[0].domain, true);
-                ProxyIP = Utils.List2String(_lockedRules[0].ip, true);
+            SelectedSource = new();
 
-                DirectDomain = Utils.List2String(_lockedRules[1].domain, true);
-                DirectIP = Utils.List2String(_lockedRules[1].ip, true);
+            domainStrategy = _config.RoutingBasicItem.DomainStrategy;
+            domainMatcher = _config.RoutingBasicItem.DomainMatcher;
+            domainStrategy4Singbox = _config.RoutingBasicItem.DomainStrategy4Singbox;
 
-                BlockDomain = Utils.List2String(_lockedRules[2].domain, true);
-                BlockIP = Utils.List2String(_lockedRules[2].ip, true);
-            }
+            await ConfigHandler.InitBuiltinRouting(_config);
+            await RefreshRoutingItems();
         }
-
-        private void EndBindingLockedData()
-        {
-            if (_lockedItem != null)
-            {
-                _lockedRules[0].domain = Utils.String2List(Utils.Convert2Comma(ProxyDomain.TrimEx()));
-                _lockedRules[0].ip = Utils.String2List(Utils.Convert2Comma(ProxyIP.TrimEx()));
-
-                _lockedRules[1].domain = Utils.String2List(Utils.Convert2Comma(DirectDomain.TrimEx()));
-                _lockedRules[1].ip = Utils.String2List(Utils.Convert2Comma(DirectIP.TrimEx()));
-
-                _lockedRules[2].domain = Utils.String2List(Utils.Convert2Comma(BlockDomain.TrimEx()));
-                _lockedRules[2].ip = Utils.String2List(Utils.Convert2Comma(BlockIP.TrimEx()));
-
-                _lockedItem.ruleSet = JsonUtils.Serialize(_lockedRules, false);
-
-                ConfigHandler.SaveRoutingItem(_config, _lockedItem);
-            }
-        }
-
-        #endregion locked
 
         #region Refresh Save
 
-        public void RefreshRoutingItems()
+        public async Task RefreshRoutingItems()
         {
             _routingItems.Clear();
 
-            var routings = AppHandler.Instance.RoutingItems();
+            var routings = await AppHandler.Instance.RoutingItems();
             foreach (var item in routings)
             {
                 bool def = false;
-                if (item.id == _config.routingBasicItem.routingIndexId)
+                if (item.Id == _config.RoutingBasicItem.RoutingIndexId)
                 {
                     def = true;
                 }
 
                 var it = new RoutingItemModel()
                 {
-                    isActive = def,
-                    ruleNum = item.ruleNum,
-                    id = item.id,
-                    remarks = item.remarks,
-                    url = item.url,
-                    customIcon = item.customIcon,
-                    customRulesetPath4Singbox = item.customRulesetPath4Singbox,
-                    sort = item.sort,
+                    IsActive = def,
+                    RuleNum = item.RuleNum,
+                    Id = item.Id,
+                    Remarks = item.Remarks,
+                    Url = item.Url,
+                    CustomIcon = item.CustomIcon,
+                    CustomRulesetPath4Singbox = item.CustomRulesetPath4Singbox,
+                    Sort = item.Sort,
                 };
                 _routingItems.Add(it);
             }
@@ -190,17 +114,14 @@ namespace ServiceLib.ViewModels
 
         private async Task SaveRoutingAsync()
         {
-            _config.routingBasicItem.domainStrategy = domainStrategy;
-            _config.routingBasicItem.enableRoutingAdvanced = enableRoutingAdvanced;
-            _config.routingBasicItem.domainMatcher = domainMatcher;
-            _config.routingBasicItem.domainStrategy4Singbox = domainStrategy4Singbox;
+            _config.RoutingBasicItem.DomainStrategy = domainStrategy;
+            _config.RoutingBasicItem.DomainMatcher = domainMatcher;
+            _config.RoutingBasicItem.DomainStrategy4Singbox = domainStrategy4Singbox;
 
-            EndBindingLockedData();
-
-            if (ConfigHandler.SaveConfig(_config) == 0)
+            if (await ConfigHandler.SaveConfig(_config) == 0)
             {
                 NoticeHandler.Instance.Enqueue(ResUI.OperationSuccess);
-                await _updateView?.Invoke(EViewAction.CloseWindow, null);
+                _updateView?.Invoke(EViewAction.CloseWindow, null);
             }
             else
             {
@@ -209,18 +130,6 @@ namespace ServiceLib.ViewModels
         }
 
         #endregion Refresh Save
-
-        private void RoutingBasicImportRules()
-        {
-            //Extra to bypass the mainland
-            ProxyDomain = "geosite:google";
-            DirectDomain = "geosite:cn";
-            DirectIP = "geoip:private,geoip:cn";
-            BlockDomain = "geosite:category-ads-all";
-
-            //NoticeHandler.Instance.Enqueue(ResUI.OperationSuccess);
-            NoticeHandler.Instance.Enqueue(ResUI.OperationSuccess);
-        }
 
         public async Task RoutingAdvancedEditAsync(bool blNew)
         {
@@ -231,7 +140,7 @@ namespace ServiceLib.ViewModels
             }
             else
             {
-                item = AppHandler.Instance.GetRoutingItem(SelectedSource?.id);
+                item = await AppHandler.Instance.GetRoutingItem(SelectedSource?.Id);
                 if (item is null)
                 {
                     return;
@@ -239,14 +148,14 @@ namespace ServiceLib.ViewModels
             }
             if (await _updateView?.Invoke(EViewAction.RoutingRuleSettingWindow, item) == true)
             {
-                RefreshRoutingItems();
+                await RefreshRoutingItems();
                 IsModified = true;
             }
         }
 
         public async Task RoutingAdvancedRemoveAsync()
         {
-            if (SelectedSource is null || SelectedSource.remarks.IsNullOrEmpty())
+            if (SelectedSource is null || SelectedSource.Remarks.IsNullOrEmpty())
             {
                 NoticeHandler.Instance.Enqueue(ResUI.PleaseSelectRules);
                 return;
@@ -257,38 +166,38 @@ namespace ServiceLib.ViewModels
             }
             foreach (var it in SelectedSources ?? [SelectedSource])
             {
-                var item = AppHandler.Instance.GetRoutingItem(it?.id);
+                var item = await AppHandler.Instance.GetRoutingItem(it?.Id);
                 if (item != null)
                 {
-                    ConfigHandler.RemoveRoutingItem(item);
+                    await ConfigHandler.RemoveRoutingItem(item);
                 }
             }
 
-            RefreshRoutingItems();
+            await RefreshRoutingItems();
             IsModified = true;
         }
 
-        public void RoutingAdvancedSetDefault()
+        public async Task RoutingAdvancedSetDefault()
         {
-            var item = AppHandler.Instance.GetRoutingItem(SelectedSource?.id);
+            var item = await AppHandler.Instance.GetRoutingItem(SelectedSource?.Id);
             if (item is null)
             {
                 NoticeHandler.Instance.Enqueue(ResUI.PleaseSelectRules);
                 return;
             }
 
-            if (ConfigHandler.SetDefaultRouting(_config, item) == 0)
+            if (await ConfigHandler.SetDefaultRouting(_config, item) == 0)
             {
-                RefreshRoutingItems();
+                await RefreshRoutingItems();
                 IsModified = true;
             }
         }
 
-        private void RoutingAdvancedImportRules()
+        private async Task RoutingAdvancedImportRules()
         {
-            if (ConfigHandler.InitBuiltinRouting(_config, true) == 0)
+            if (await ConfigHandler.InitRouting(_config, true) == 0)
             {
-                RefreshRoutingItems();
+                await RefreshRoutingItems();
                 IsModified = true;
             }
         }
